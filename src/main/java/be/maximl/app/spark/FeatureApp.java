@@ -1,12 +1,14 @@
-package be.maximl.app;
+package be.maximl.app.spark;
 
-import be.maximl.bf.ds.BioFormatsRelation;
+import be.maximl.bf.lib.BioFormatsLoader;
 import be.maximl.bf.lib.BioFormatsImage;
 import be.maximl.bf.lib.RecursiveExtensionFilteredLister;
+import io.scif.FormatException;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.api.java.function.ReduceFunction;
 import org.apache.spark.sql.*;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -15,9 +17,9 @@ import java.util.List;
  * 
  * @author jgp
  */
-public class AnalysisApp {
+public class FeatureApp {
   public static void main(String[] args) {
-    AnalysisApp app = new AnalysisApp();
+    FeatureApp app = new FeatureApp();
     app.start();
   }
 
@@ -46,10 +48,16 @@ public class AnalysisApp {
     lister.setPath(importDirectory);
     lister.addExtension("cif");
 
-    BioFormatsRelation relation = new BioFormatsRelation();
+    BioFormatsLoader relation = new BioFormatsLoader();
     relation.addChannel(0);
     relation.setImageLimit(-1);
-    relation.setLister(lister);
+    try {
+      relation.setLister(lister);
+    } catch (IOException e) {
+      e.printStackTrace();
+    } catch (FormatException e) {
+      e.printStackTrace();
+    }
 
     List<BioFormatsImage> images = relation.collectData();
     Dataset<BioFormatsImage> ds = spark.createDataset(images, bfiEncoder).cache();

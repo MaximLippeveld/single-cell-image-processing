@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -27,6 +28,7 @@ public class RecursiveExtensionFilteredLister implements Serializable {
   private boolean recursive;
   private boolean hasChanged;
   private String startPath = null;
+  private Iterator<File> fileIterator;
 
   /**
    * Constructor, sets the default values.
@@ -158,4 +160,5 @@ public class RecursiveExtensionFilteredLister implements Serializable {
     this.recursive = b;
     this.hasChanged = true;
   }
+
 }
