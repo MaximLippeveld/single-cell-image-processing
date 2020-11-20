@@ -45,7 +45,7 @@ public class FeatureApp {
     final long startTime = System.currentTimeMillis();
 
     RecursiveExtensionFilteredLister lister = new RecursiveExtensionFilteredLister();
-    lister.setFileLimit(2);
+    lister.setFileLimit(6);
     lister.setPath(importDirectory);
     lister.addExtension("cif");
 
