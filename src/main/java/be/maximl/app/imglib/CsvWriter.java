@@ -4,7 +4,6 @@ import com.opencsv.bean.StatefulBeanToCsv;
 import com.opencsv.bean.StatefulBeanToCsvBuilder;
 import com.opencsv.exceptions.CsvDataTypeMismatchException;
 import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
-import org.apache.hadoop.yarn.webapp.hamlet.Hamlet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +12,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 public class CsvWriter extends Thread {
 
@@ -20,6 +20,8 @@ public class CsvWriter extends Thread {
     final private BlockingQueue<FeatureVectorFactory.FeatureVector> queue;
     final private StatefulBeanToCsv<Object> beanToCsv;
     final private Writer writer;
+    public int count = 0;
+    volatile public boolean stopWriting = false;
 
     public CsvWriter(BlockingQueue<FeatureVectorFactory.FeatureVector> queue, File file) throws IOException {
         this.queue = queue;
@@ -30,32 +32,33 @@ public class CsvWriter extends Thread {
 
     @Override
     public void run() {
+
         try {
-            while(!this.isInterrupted()) {
-                synchronized (queue) {
-                    queue.wait();
+            try {
+                FeatureVectorFactory.FeatureVector vec;
+                while (!stopWriting) {
+                    vec = queue.poll(100, TimeUnit.MILLISECONDS);
+                    if (vec != null) {
+                        beanToCsv.write(vec);
+                        count++;
+                    }
                 }
-                if (this.isInterrupted()) {
-                    break;
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+
+                log.info("Writing remaining vectors to csv " + queue.size());
+                for (FeatureVectorFactory.FeatureVector vec2 : queue) {
+                    beanToCsv.write(vec2);
+                    count++;
                 }
 
-                FeatureVectorFactory.FeatureVector vec = queue.poll();
-                beanToCsv.write(vec);
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (CsvRequiredFieldEmptyException e) {
-            e.printStackTrace();
-        } catch (CsvDataTypeMismatchException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                log.debug("Ran writer finally");
+                log.info("Finalize writer");
                 writer.flush();
                 writer.close();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
+        } catch (CsvRequiredFieldEmptyException | CsvDataTypeMismatchException | IOException e) {
+            e.printStackTrace();
         }
     }
 }

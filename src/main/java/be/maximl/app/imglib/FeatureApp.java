@@ -4,14 +4,12 @@ import be.maximl.bf.lib.BioFormatsImage;
 import be.maximl.bf.lib.BioFormatsLoader;
 import be.maximl.bf.lib.RecursiveExtensionFilteredLister;
 import io.scif.FormatException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
 
 /**
  * Ingest metadata from a directory containing photos, make them available
@@ -20,6 +18,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  * @author jgp
  */
 public class FeatureApp {
+
+  private final Logger log = LoggerFactory.getLogger(FeatureApp.class);
+
   public static void main(String[] args) {
     FeatureApp app = new FeatureApp();
     try {
@@ -27,6 +28,7 @@ public class FeatureApp {
     } catch (IOException e) {
       e.printStackTrace();
     }
+    LoggerFactory.getLogger(FeatureApp.class).info("End of app");
   }
 
   /**
@@ -49,7 +51,7 @@ public class FeatureApp {
 
     BioFormatsLoader relation = new BioFormatsLoader();
     relation.addChannel(0);
-    relation.setImageLimit(10);
+    relation.setImageLimit(-1);
     try {
       relation.setLister(lister);
     } catch (IOException e) {
@@ -61,34 +63,32 @@ public class FeatureApp {
     }
 
     int queueCapacity = 10000;
-    BlockingQueue<BioFormatsImage> queue = new ArrayBlockingQueue<>(queueCapacity);
-    BlockingQueue<FeatureVectorFactory.FeatureVector> writeQueue = new LinkedBlockingQueue<>();
+    BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(queueCapacity);
+    BlockingQueue<FeatureVectorFactory.FeatureVector> resultsQueue = new LinkedBlockingQueue<>();
 
-    ImageProducer producer = new ImageProducer(relation, queue);
+    ExecutorService executor = new ThreadPoolExecutor(10, 20, 1000, TimeUnit.MILLISECONDS, queue);
+
+    ImageProducer producer = new ImageProducer(relation, executor, resultsQueue);
     producer.start();
 
-    ImageConsumer consumer = new ImageConsumer(queue, writeQueue);
-    consumer.start();
-
     File file = new File("output.csv");
-    CsvWriter writer = new CsvWriter(writeQueue, file);
-    writer.start();
+    CsvWriter csvWriter = new CsvWriter(resultsQueue, file);
+    csvWriter.start();
 
     try {
       producer.join();
-      consumer.interrupt();
+      log.info("PRODUCER COUNT " + producer.count);
 
-      while(!writeQueue.isEmpty()) {
-        writeQueue.wait();
-      }
-      writer.interrupt();
-      writer.join();
+      executor.shutdown();
+      boolean res = executor.awaitTermination(1, TimeUnit.SECONDS);
+      log.info("Executor tasks finished " + res);
+
+      csvWriter.stopWriting = true;
+      csvWriter.join();
+      log.info("WRITER COUNT " + csvWriter.count);
     } catch (InterruptedException e) {
-      System.err.println("Main thread interrupted while joining");
-    } finally {
-      consumer.interrupt();
-      producer.interrupt();
-      writer.interrupt();
+      log.error("Interrupted here");
+      e.printStackTrace();
     }
 
     final long endTime = System.currentTimeMillis();
