@@ -1,9 +1,8 @@
 package be.maximl.app.imglib;
 
-import com.opencsv.bean.StatefulBeanToCsv;
-import com.opencsv.bean.StatefulBeanToCsvBuilder;
-import com.opencsv.exceptions.CsvDataTypeMismatchException;
-import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
+import com.opencsv.CSVWriter;
+import com.opencsv.CSVWriterBuilder;
+import com.opencsv.ICSVWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,23 +10,25 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class CsvWriter extends Thread {
 
     final private Logger log = LoggerFactory.getLogger(CsvWriter.class);
-    final private BlockingQueue<FeatureVectorFactory.FeatureVector> queue;
-    final private StatefulBeanToCsv<Object> beanToCsv;
+    final private CompletionService<FeatureVectorFactory.FeatureVector> completionService;
+    final private ICSVWriter csvWriter;
     final private Writer writer;
-    public int count = 0;
-    volatile public boolean stopWriting = false;
+    final private AtomicInteger countWritten = new AtomicInteger();
+    volatile public boolean stopWriting;
 
-    public CsvWriter(BlockingQueue<FeatureVectorFactory.FeatureVector> queue, File file) throws IOException {
-        this.queue = queue;
+    public CsvWriter(CompletionService<FeatureVectorFactory.FeatureVector> completionService, File file) throws IOException {
+        this.completionService = completionService;
 
         writer = new FileWriter(file);
-        beanToCsv = new StatefulBeanToCsvBuilder<>(writer).build();
+        CSVWriterBuilder builder = new CSVWriterBuilder(writer);
+        builder.withQuoteChar(CSVWriter.NO_QUOTE_CHARACTER);
+        csvWriter = builder.build();
     }
 
     @Override
@@ -35,30 +36,37 @@ public class CsvWriter extends Thread {
 
         try {
             try {
-                FeatureVectorFactory.FeatureVector vec;
-                while (!stopWriting) {
-                    vec = queue.poll(100, TimeUnit.MILLISECONDS);
-                    if (vec != null) {
-                        beanToCsv.write(vec);
-                        count++;
+                Future<FeatureVectorFactory.FeatureVector> vec;
+                while (!Thread.currentThread().isInterrupted()) {
+                    vec = completionService.take();
+
+                    if (countWritten.get() == 0) {
+                        String[] headers = vec.get().getMap().keySet().toArray(new String[0]);
+                        csvWriter.writeNext(headers);
+                    }
+
+                    csvWriter.writeNext(vec.get().getLine());
+
+                    synchronized (countWritten) {
+                        countWritten.getAndIncrement();
+                        countWritten.notify();
                     }
                 }
-            } catch (InterruptedException e) {
+
+            } catch (ExecutionException | InterruptedException e) {
+                log.error("Interrupted while waiting");
                 e.printStackTrace();
             } finally {
-
-                log.info("Writing remaining vectors to csv " + queue.size());
-                for (FeatureVectorFactory.FeatureVector vec2 : queue) {
-                    beanToCsv.write(vec2);
-                    count++;
-                }
-
                 log.info("Finalize writer");
                 writer.flush();
                 writer.close();
             }
-        } catch (CsvRequiredFieldEmptyException | CsvDataTypeMismatchException | IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public AtomicInteger getCountWritten() {
+        return countWritten;
     }
 }

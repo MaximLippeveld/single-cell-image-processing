@@ -47,7 +47,7 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
     image.setDirectory(reader.getMetadata().getSourceLocation().getName());
     image.setFilename(reader.getMetadata().getSourceLocation().getName());
     image.setExtension(reader.getFormatName());
-    image.setChannels(channels.size());
+    image.setChannels(channels);
 
     imgPlane = reader.openPlane(imgIndex, channels.get(0));
     image.setPlaneLengths(imgPlane.getLengths());

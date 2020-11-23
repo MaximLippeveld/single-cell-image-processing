@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * A good old JavaBean containing the EXIF properties as well as the
@@ -24,7 +25,7 @@ public class BioFormatsImage implements Serializable {
   private String extension;
   private String filename;
   private long size;
-  private int channels;
+  private List<Integer> channels;
   private short[] planes;
   private long[] planeLengths;
   private long[] dims = null;
@@ -48,7 +49,7 @@ public class BioFormatsImage implements Serializable {
   private long[] getDims() {
     if (this.dims == null) {
       this.dims = new long[3];
-      this.dims[0] = this.channels;
+      this.dims[0] = this.channels.size();
       this.dims[1] = this.planeLengths[0];
       this.dims[2] = this.planeLengths[1];
     }
@@ -88,11 +89,11 @@ public class BioFormatsImage implements Serializable {
     return size;
   }
 
-  public int getChannels() {
+  public List<Integer> getChannels() {
     return channels;
   }
 
-  public void setChannels(int channels) {
+  public void setChannels(List<Integer> channels) {
     this.channels = channels;
   }
 

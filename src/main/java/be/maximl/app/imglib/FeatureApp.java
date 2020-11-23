@@ -1,6 +1,5 @@
 package be.maximl.app.imglib;
 
-import be.maximl.bf.lib.BioFormatsImage;
 import be.maximl.bf.lib.BioFormatsLoader;
 import be.maximl.bf.lib.RecursiveExtensionFilteredLister;
 import io.scif.FormatException;
@@ -10,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Ingest metadata from a directory containing photos, make them available
@@ -45,12 +45,14 @@ public class FeatureApp {
     final long startTime = System.currentTimeMillis();
 
     RecursiveExtensionFilteredLister lister = new RecursiveExtensionFilteredLister();
-    lister.setFileLimit(6);
+    lister.setFileLimit(5);
     lister.setPath(importDirectory);
     lister.addExtension("cif");
 
     BioFormatsLoader relation = new BioFormatsLoader();
     relation.addChannel(0);
+//    relation.addChannel(2);
+//    relation.addChannel(5);
     relation.setImageLimit(-1);
     try {
       relation.setLister(lister);
@@ -62,30 +64,37 @@ public class FeatureApp {
       e.printStackTrace();
     }
 
-    int queueCapacity = 10000;
+    int queueCapacity = 50000;
     BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(queueCapacity);
-    BlockingQueue<FeatureVectorFactory.FeatureVector> resultsQueue = new LinkedBlockingQueue<>();
+    ExecutorService executor = new ThreadPoolExecutor(30, 30, 1000, TimeUnit.MILLISECONDS, queue);
+    CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
+    AtomicInteger counter = new AtomicInteger(0);
 
-    ExecutorService executor = new ThreadPoolExecutor(10, 20, 1000, TimeUnit.MILLISECONDS, queue);
-
-    ImageProducer producer = new ImageProducer(relation, executor, resultsQueue);
+    ImageProducer producer = new ImageProducer(relation, completionService, counter);
     producer.start();
 
     File file = new File("output.csv");
-    CsvWriter csvWriter = new CsvWriter(resultsQueue, file);
+    CsvWriter csvWriter = new CsvWriter(completionService, file);
     csvWriter.start();
 
     try {
       producer.join();
-      log.info("PRODUCER COUNT " + producer.count);
+      int producerCount = counter.get();
+      log.info("PRODUCER COUNT " + producerCount);
 
       executor.shutdown();
       boolean res = executor.awaitTermination(1, TimeUnit.SECONDS);
       log.info("Executor tasks finished " + res);
 
-      csvWriter.stopWriting = true;
+      synchronized (csvWriter.getCountWritten()) {
+        while(producerCount != csvWriter.getCountWritten().get()) {
+          csvWriter.getCountWritten().wait();
+        }
+      }
+
+      csvWriter.interrupt();
       csvWriter.join();
-      log.info("WRITER COUNT " + csvWriter.count);
+      log.info("WRITER COUNT " + csvWriter.getCountWritten());
     } catch (InterruptedException e) {
       log.error("Interrupted here");
       e.printStackTrace();
