@@ -13,8 +13,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Stream;
 
 
 public class BioFormatsLoader implements Iterator<BioFormatsImage> {
@@ -34,10 +36,12 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
 
     int imgIndex;
     int maskIndex;
-    int shortsInPlane;
+    int pointsInPlane;
     Plane imgPlane;
+    Plane maskPlane;
     short[] flatData;
-    short[] planeData;
+    boolean[] maskData;
+    short[] planeTmp;
     BioFormatsImage image;
 
     imgIndex = index;
@@ -53,19 +57,29 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
     image.setPlaneLengths(imgPlane.getLengths());
     image.setSize(imgPlane.getBytes().length * channels.size());
 
-    shortsInPlane = imgPlane.getBytes().length / 2;
+    pointsInPlane = imgPlane.getBytes().length / 2;
 
-    flatData = new short[channels.size()*shortsInPlane];
-    planeData = new short[shortsInPlane];
+    flatData = new short[channels.size()*pointsInPlane];
+    planeTmp = new short[pointsInPlane];
+    maskData = new boolean[channels.size()*pointsInPlane];
 
     for (int j = 0; j<channels.size(); j++) {
 
-      if (j > 1) { imgPlane = reader.openPlane(imgIndex, channels.get(j)); }
-      ByteBuffer.wrap(imgPlane.getBytes()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(planeData);
-      System.arraycopy(planeData, 0, flatData, j * shortsInPlane, shortsInPlane);
+      maskPlane = reader.openPlane(maskIndex, channels.get(j));
+      for (int k = 0; k<maskPlane.getBytes().length; k+=2) {
+        maskData[k/2+j*pointsInPlane] = maskPlane.getBytes()[k] > 0;
+      }
+
+      if (j > 1) {
+        // the plane at j=0 was already loaded in
+        imgPlane = reader.openPlane(imgIndex, channels.get(j));
+      }
+      ByteBuffer.wrap(imgPlane.getBytes()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(planeTmp);
+      System.arraycopy(planeTmp, 0, flatData, j * pointsInPlane, pointsInPlane);
     }
 
     image.setPlanes(flatData);
+    image.setMasks(maskData);
 
     return image;
   }

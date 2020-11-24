@@ -51,7 +51,7 @@ public class FeatureApp {
 
     BioFormatsLoader relation = new BioFormatsLoader();
     relation.addChannel(0);
-//    relation.addChannel(2);
+    relation.addChannel(2);
 //    relation.addChannel(5);
     relation.setImageLimit(-1);
     try {
@@ -86,14 +86,15 @@ public class FeatureApp {
       boolean res = executor.awaitTermination(1, TimeUnit.SECONDS);
       log.info("Executor tasks finished " + res);
 
-      synchronized (csvWriter.getCountWritten()) {
-        while(producerCount != csvWriter.getCountWritten().get()) {
-          csvWriter.getCountWritten().wait();
+      if (csvWriter.isAlive()) {
+        synchronized (csvWriter.getCountWritten()) {
+          while(producerCount != csvWriter.getCountWritten().get()) {
+            csvWriter.getCountWritten().wait();
+          }
         }
+        csvWriter.interrupt();
+        csvWriter.join();
       }
-
-      csvWriter.interrupt();
-      csvWriter.join();
       log.info("WRITER COUNT " + csvWriter.getCountWritten());
     } catch (InterruptedException e) {
       log.error("Interrupted here");

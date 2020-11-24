@@ -1,14 +1,28 @@
 package be.maximl.bf.lib;
 
+import net.imglib2.Cursor;
+import net.imglib2.Localizable;
+import net.imglib2.RandomAccess;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.img.array.ArrayRandomAccess;
+import net.imglib2.img.basictypeaccess.array.BooleanArray;
 import net.imglib2.img.basictypeaccess.array.ShortArray;
+import net.imglib2.roi.BoundaryType;
+import net.imglib2.roi.KnownConstant;
+import net.imglib2.roi.MaskInterval;
+import net.imglib2.roi.mask.integer.DefaultMaskInterval;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.view.IntervalView;
+import net.imglib2.view.Views;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * A good old JavaBean containing the EXIF properties as well as the
@@ -27,6 +41,9 @@ public class BioFormatsImage implements Serializable {
   private long size;
   private List<Integer> channels;
   private short[] planes;
+  private ArrayImg<UnsignedShortType, ShortArray> img;
+  private ArrayImg<NativeBoolType, BooleanArray> maskImg;
+  private boolean[] masks;
   private long[] planeLengths;
   private long[] dims = null;
 
@@ -36,10 +53,16 @@ public class BioFormatsImage implements Serializable {
 
   public void setPlanes(short[] planes) {
     this.planes = planes;
+    img =  ArrayImgs.unsignedShorts(planes, getDims());
   }
 
   public long[] getPlaneLengths() {
     return planeLengths;
+  }
+
+  public void setMasks(boolean[] masks) {
+    this.masks = masks;
+    maskImg = ArrayImgs.booleans(masks, getDims());
   }
 
   public void setPlaneLengths(long[] planeLengths) {
@@ -57,7 +80,20 @@ public class BioFormatsImage implements Serializable {
   }
 
   public ArrayImg<UnsignedShortType, ShortArray> getImg() {
-    return ArrayImgs.unsignedShorts(this.planes, this.getDims());
+    return img;
+  }
+
+  public ArrayImg<NativeBoolType, BooleanArray> getMaskImg() {
+    return maskImg;
+  }
+
+  public MaskInterval getMask(int dim) {
+    RandomAccess<NativeBoolType> mask = Views.hyperSlice(getMaskImg(), 0, dim).randomAccess();
+    Predicate<Localizable> maskPredicate = loc -> {
+      mask.setPosition(loc);
+      return mask.get().get();
+    };
+    return new DefaultMaskInterval(Views.hyperSlice(getImg(), 0, dim), BoundaryType.CLOSED, maskPredicate, KnownConstant.UNKNOWN);
   }
 
   /**
