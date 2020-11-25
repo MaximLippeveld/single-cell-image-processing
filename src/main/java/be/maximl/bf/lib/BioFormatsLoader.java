@@ -66,11 +66,11 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
     for (int j = 0; j<channels.size(); j++) {
 
       maskPlane = reader.openPlane(maskIndex, channels.get(j));
-      for (int k = 0; k<maskPlane.getBytes().length; k+=2) {
-        maskData[k/2+j*pointsInPlane] = maskPlane.getBytes()[k] > 0;
+      for (int k = 0; k<maskPlane.getBytes().length/2; k++) {
+        maskData[k+j*pointsInPlane] = maskPlane.getBytes()[k] > 0;
       }
 
-      if (j > 1) {
+      if (j > 0) {
         // the plane at j=0 was already loaded in
         imgPlane = reader.openPlane(imgIndex, channels.get(j));
       }

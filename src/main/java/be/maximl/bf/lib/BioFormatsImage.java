@@ -3,6 +3,7 @@ package be.maximl.bf.lib;
 import net.imglib2.Cursor;
 import net.imglib2.Localizable;
 import net.imglib2.RandomAccess;
+import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.array.ArrayRandomAccess;
@@ -34,6 +35,8 @@ public class BioFormatsImage implements Serializable {
   private static transient Logger log = LoggerFactory.getLogger(
       BioFormatsImage.class);
   private static final long serialVersionUID = -2589804417011601051L;
+
+  private static int CHANNELDIM = 2;
 
   private String directory;
   private String extension;
@@ -72,14 +75,14 @@ public class BioFormatsImage implements Serializable {
   private long[] getDims() {
     if (this.dims == null) {
       this.dims = new long[3];
-      this.dims[0] = this.channels.size();
-      this.dims[1] = this.planeLengths[0];
-      this.dims[2] = this.planeLengths[1];
+      this.dims[0] = this.planeLengths[0];
+      this.dims[1] = this.planeLengths[1];
+      this.dims[2] = channels.size();
     }
     return this.dims;
   }
 
-  public ArrayImg<UnsignedShortType, ShortArray> getImg() {
+  public RandomAccessibleInterval<UnsignedShortType> getImg() {
     return img;
   }
 
@@ -87,13 +90,13 @@ public class BioFormatsImage implements Serializable {
     return maskImg;
   }
 
-  public MaskInterval getMask(int dim) {
-    RandomAccess<NativeBoolType> mask = Views.hyperSlice(getMaskImg(), 0, dim).randomAccess();
+  public MaskInterval getMask(int pos) {
+    RandomAccess<NativeBoolType> mask = Views.hyperSlice(getMaskImg(), CHANNELDIM, pos).randomAccess();
     Predicate<Localizable> maskPredicate = loc -> {
       mask.setPosition(loc);
       return mask.get().get();
     };
-    return new DefaultMaskInterval(Views.hyperSlice(getImg(), 0, dim), BoundaryType.CLOSED, maskPredicate, KnownConstant.UNKNOWN);
+    return new DefaultMaskInterval(Views.hyperSlice(getImg(), CHANNELDIM, pos), BoundaryType.CLOSED, maskPredicate, KnownConstant.UNKNOWN);
   }
 
   /**

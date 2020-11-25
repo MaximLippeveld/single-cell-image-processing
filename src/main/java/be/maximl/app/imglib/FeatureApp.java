@@ -45,14 +45,17 @@ public class FeatureApp {
     final long startTime = System.currentTimeMillis();
 
     RecursiveExtensionFilteredLister lister = new RecursiveExtensionFilteredLister();
-    lister.setFileLimit(5);
+    lister.setFileLimit(1);
     lister.setPath(importDirectory);
     lister.addExtension("cif");
 
     BioFormatsLoader relation = new BioFormatsLoader();
     relation.addChannel(0);
-    relation.addChannel(2);
-//    relation.addChannel(5);
+    relation.addChannel(3);
+    relation.addChannel(5);
+    relation.addChannel(6);
+    relation.addChannel(10);
+
     relation.setImageLimit(-1);
     try {
       relation.setLister(lister);
