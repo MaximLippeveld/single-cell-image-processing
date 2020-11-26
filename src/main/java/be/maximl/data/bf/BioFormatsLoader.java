@@ -1,28 +1,25 @@
-package be.maximl.bf.lib;
+package be.maximl.data.bf;
 
+import be.maximl.data.Image;
+import be.maximl.data.RecursiveExtensionFilteredLister;
 import io.scif.FormatException;
 import io.scif.Plane;
 import io.scif.Reader;
 import io.scif.SCIFIO;
 import org.scijava.io.location.FileLocation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.scijava.log.LogService;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
-import java.util.List;
-import java.util.stream.Stream;
 
 
-public class BioFormatsLoader implements Iterator<BioFormatsImage> {
+public class BioFormatsLoader implements be.maximl.data.Loader {
   private static final long serialVersionUID = 4598175080399877334L;
-  private static transient Logger log =
-      LoggerFactory.getLogger(BioFormatsLoader.class);
+  private final LogService log;
   private Iterator<File> lister;
   final private ArrayList<Integer> channels = new ArrayList<>();
   final private SCIFIO scifio = new SCIFIO();
@@ -32,7 +29,12 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
   private int currentFinalIndex;
   private int currentIndex = 0;
 
-  public BioFormatsImage imageFromReader(Reader reader, int index) throws IOException, FormatException {
+  public BioFormatsLoader(LogService log) {
+    this.log = log;
+  }
+
+  @Override
+  public Image imageFromReader(Reader reader, int index) throws IOException, FormatException {
 
     int imgIndex;
     int maskIndex;
@@ -42,7 +44,7 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
     short[] flatData;
     boolean[] maskData;
     short[] planeTmp;
-    BioFormatsImage image;
+    Image image;
 
     imgIndex = index;
     maskIndex = index+1;
@@ -84,16 +86,19 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
     return image;
   }
 
+  @Override
   public void addChannel(int channel) {
     this.channels.add(channel);
   }
 
+  @Override
   public void setImageLimit(int imageLimit) {
     this.imageLimit = imageLimit;
   }
 
-  public void setLister (
-      RecursiveExtensionFilteredLister lister) throws IOException, FormatException {
+  @Override
+  public void setLister(
+          RecursiveExtensionFilteredLister lister) throws IOException, FormatException {
     this.lister = lister.getFiles().iterator();
     currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
     currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
@@ -108,10 +113,10 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
   }
 
   @Override
-  public BioFormatsImage next() {
+  public Image next() {
 
     try {
-      BioFormatsImage image = imageFromReader(currentReader, currentIndex);
+      Image image = imageFromReader(currentReader, currentIndex);
 
       currentIndex += 2;
 
@@ -134,7 +139,4 @@ public class BioFormatsLoader implements Iterator<BioFormatsImage> {
     return null;
   }
 
-  public List<BioFormatsImage> collectData() {
-    return new ArrayList<>();
-  }
 }

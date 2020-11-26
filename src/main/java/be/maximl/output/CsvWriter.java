@@ -1,10 +1,10 @@
-package be.maximl.app.imglib;
+package be.maximl.output;
 
+import be.maximl.feature.FeatureVectorFactory;
 import com.opencsv.CSVWriter;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.scijava.log.LogService;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -15,14 +15,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class CsvWriter extends Thread {
 
-    final private Logger log = LoggerFactory.getLogger(CsvWriter.class);
+    final private LogService log;
     final private CompletionService<FeatureVectorFactory.FeatureVector> completionService;
     final private ICSVWriter csvWriter;
     final private Writer writer;
     final private AtomicInteger countWritten = new AtomicInteger();
-    volatile public boolean stopWriting;
 
-    public CsvWriter(CompletionService<FeatureVectorFactory.FeatureVector> completionService, File file) throws IOException {
+    public CsvWriter(LogService log, CompletionService<FeatureVectorFactory.FeatureVector> completionService, File file) throws IOException {
+        this.log = log;
         this.completionService = completionService;
 
         writer = new FileWriter(file);

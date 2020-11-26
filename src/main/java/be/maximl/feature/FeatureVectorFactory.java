@@ -1,7 +1,7 @@
-package be.maximl.app.imglib;
+package be.maximl.feature;
 
-import be.maximl.bf.lib.BioFormatsImage;
-import net.imagej.ImageJ;
+import be.maximl.data.Image;
+import net.imagej.ops.OpService;
 import net.imagej.ops.features.haralick.HaralickNamespace;
 import net.imagej.ops.image.cooccurrenceMatrix.MatrixOrientation2D;
 import net.imglib2.IterableInterval;
@@ -20,7 +20,11 @@ import static java.lang.Double.NaN;
 
 public class FeatureVectorFactory {
 
-    final private ImageJ ij = new ImageJ();
+    final private OpService opService;
+
+    public FeatureVectorFactory(OpService opService) {
+        this.opService = opService;
+    }
 
     public static class FeatureVector {
         private final Map<String, String> map = new HashMap<>();
@@ -59,8 +63,7 @@ public class FeatureVectorFactory {
         }
     }
 
-
-    public FeatureVector computeVector(BioFormatsImage img) {
+    public FeatureVector computeVector(Image img) {
 
         FeatureVector vec = new FeatureVector();
         vec.add("file", img.getFilename());
@@ -78,22 +81,22 @@ public class FeatureVectorFactory {
             slice = Regions.sample(img.getMask(i), Views.hyperSlice(libImg, 2, i));
             channel = img.getChannels().get(i);
 
-            vec.computeFeature("geometricMean", channel, s -> ij.op().stats().geometricMean(s).getRealDouble(), slice, compute);
-            vec.computeFeature("harmonicMean", channel, s -> ij.op().stats().harmonicMean(s).getRealDouble(), slice, compute);
-            vec.computeFeature("stdDev", channel, s -> ij.op().stats().stdDev(s).getRealDouble(), slice, compute);
-            vec.computeFeature("median", channel, s -> ij.op().stats().median(s).getRealDouble(), slice, compute);
-            vec.computeFeature("sum", channel, s -> ij.op().stats().sum(s).getRealDouble(), slice, compute);
-            vec.computeFeature("min", channel, s -> ij.op().stats().min(s).getRealDouble(), slice, compute);
-            vec.computeFeature("max", channel, s -> ij.op().stats().max(s).getRealDouble(), slice, compute);
-            vec.computeFeature("kurtosis", channel, s -> ij.op().stats().kurtosis(s).getRealDouble(), slice, compute);
-            vec.computeFeature("skewness", channel, s -> ij.op().stats().skewness(s).getRealDouble(), slice, compute);
-            vec.computeFeature("moment3AboutMean", channel, s -> ij.op().stats().moment3AboutMean(s).getRealDouble(), slice, compute);
+            vec.computeFeature("geometricMean", channel, s -> opService.stats().geometricMean(s).getRealDouble(), slice, compute);
+            vec.computeFeature("harmonicMean", channel, s -> opService.stats().harmonicMean(s).getRealDouble(), slice, compute);
+            vec.computeFeature("stdDev", channel, s -> opService.stats().stdDev(s).getRealDouble(), slice, compute);
+            vec.computeFeature("median", channel, s -> opService.stats().median(s).getRealDouble(), slice, compute);
+            vec.computeFeature("sum", channel, s -> opService.stats().sum(s).getRealDouble(), slice, compute);
+            vec.computeFeature("min", channel, s -> opService.stats().min(s).getRealDouble(), slice, compute);
+            vec.computeFeature("max", channel, s -> opService.stats().max(s).getRealDouble(), slice, compute);
+            vec.computeFeature("kurtosis", channel, s -> opService.stats().kurtosis(s).getRealDouble(), slice, compute);
+            vec.computeFeature("skewness", channel, s -> opService.stats().skewness(s).getRealDouble(), slice, compute);
+            vec.computeFeature("moment3AboutMean", channel, s -> opService.stats().moment3AboutMean(s).getRealDouble(), slice, compute);
 
-//            ZernikeNamespace zernike = s -> ij.op().zernike();
+//            ZernikeNamespace zernike = s -> opService.zernike();
 //            vec.add("zernikeMagnitude", channel, zernike.magnitude(s, 0, 1).getRealDouble());
 //            vec.add("zernikePhase", channel, zernike.phase(s, 0, 1).getRealDouble());
 //
-            HaralickNamespace haralick = ij.op().haralick();
+            HaralickNamespace haralick = opService.haralick();
             for ( MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 vec.computeFeature(
                         "haralickContrast" + orientation, channel,

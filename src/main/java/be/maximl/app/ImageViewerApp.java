@@ -1,20 +1,16 @@
-package be.maximl.app.imglib;
+package be.maximl.app;
 
-import be.maximl.bf.lib.BioFormatsImage;
-import be.maximl.bf.lib.BioFormatsLoader;
-import be.maximl.bf.lib.RecursiveExtensionFilteredLister;
+import be.maximl.data.Image;
+import be.maximl.data.Loader;
+import be.maximl.data.bf.BioFormatsLoader;
+import be.maximl.data.RecursiveExtensionFilteredLister;
 import io.scif.FormatException;
-import jdk.jfr.Unsigned;
 import net.imagej.ImageJ;
-import net.imagej.ImgPlus;
 import net.imglib2.Cursor;
 import net.imglib2.IterableInterval;
-import net.imglib2.img.Img;
-import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
-import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 import org.scijava.ui.UIService;
 
@@ -23,6 +19,8 @@ import java.io.IOException;
 public class ImageViewerApp {
 
     public static void main(String[] args) {
+
+        ImageJ ij = new ImageJ();
 
         // Import directory
         String importDirectory = "/home/maximl/Data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/";
@@ -35,7 +33,7 @@ public class ImageViewerApp {
         lister.setPath(importDirectory);
         lister.addExtension("cif");
 
-        BioFormatsLoader relation = new BioFormatsLoader();
+        Loader relation = new BioFormatsLoader(ij.log());
         for (int i=0;i<3;i++) {
             relation.addChannel(i);
         }
@@ -50,9 +48,7 @@ public class ImageViewerApp {
             e.printStackTrace();
         }
 
-        ImageJ ij = new ImageJ();
-
-        BioFormatsImage img = relation.next();
+        Image img = relation.next();
         UIService service = ij.ui();
 
         service.show(Views.hyperSlice(img.getImg(), 2, 0));

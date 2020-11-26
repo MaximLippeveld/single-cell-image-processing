@@ -5,12 +5,12 @@
 		http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-<!--	<parent>-->
-<!--		<groupId>org.scijava</groupId>-->
-<!--		<artifactId>pom-scijava</artifactId>-->
-<!--		<version>29.2.1</version>-->
-<!--		<relativePath />-->
-<!--	</parent>-->
+	<parent>
+		<groupId>org.scijava</groupId>
+		<artifactId>pom-scijava</artifactId>
+		<version>29.2.1</version>
+		<relativePath />
+	</parent>
 
 	<groupId>be.maximl</groupId>
 	<artifactId>sci-java-mvn</artifactId>
@@ -28,10 +28,10 @@
 		</plugins>
 	</build>
 
-	<name>Simple ImageJ Commands</name>
-	<description>This example provides an introduction to writing ImageJ commands.</description>
+	<name>SCI Feature extraction</name>
+	<description>A tool for feature extraction on single cell imaging data..</description>
 	<url>https://github.com/[MY-ORG]/[MY-REPO]</url>
-	<inceptionYear>2013</inceptionYear>
+	<inceptionYear>2020</inceptionYear>
 	<organization>
 		<name>[MY-ORGANIZATION-NAME]</name>
 		<url>[MY-ORGANIZATION-WEB-SITE]</url>
@@ -79,13 +79,10 @@
 	</ciManagement>
 
 	<properties>
-		<main-class>AnalysisApp</main-class>
+		<main-class>be.maximl.app.FeatureApp</main-class>
 		<license.licenseName>unlicense</license.licenseName>
 		<license.copyrightOwners>N/A</license.copyrightOwners>
 		<license.projectName>ImageJ software for multidimensional image processing and analysis.</license.projectName>
-		<java.version>1.8</java.version>
-		<scala.version>2.11</scala.version>
-		<spark.version>2.3.1</spark.version>
 	</properties>
 
 	<repositories>
@@ -99,47 +96,30 @@
 		<dependency>
 			<groupId>io.scif</groupId>
 			<artifactId>scifio</artifactId>
-			<version>0.41.0</version>
 		</dependency>
 		<dependency>
 			<groupId>io.scif</groupId>
 			<artifactId>scifio-bf-compat</artifactId>
 			<scope>runtime</scope>
-			<version>4.1.0</version>
 		</dependency>
 		<!-- The formats-bsd component adds support for open formats. -->
 		<dependency>
 			<groupId>ome</groupId>
 			<artifactId>formats-bsd</artifactId>
 			<scope>runtime</scope>
-			<version>6.5.1</version>
 		</dependency>
 		<dependency>
 			<groupId>ome</groupId>
 			<artifactId>formats-gpl</artifactId>
 			<scope>runtime</scope>
-			<version>6.5.1</version>
 		</dependency>
 		<dependency>
 			<groupId>net.imagej</groupId>
 			<artifactId>imagej</artifactId>
-			<version>2.1.0</version>
 		</dependency>
 		<dependency>
-			<groupId>org.apache.spark</groupId>
-			<artifactId>spark-core_${scala.version}</artifactId>
-			<version>${spark.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.spark</groupId>
-			<artifactId>spark-sql_${scala.version}</artifactId>
-			<version>${spark.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-simple</artifactId>
-				</exclusion>
-			</exclusions>
+			<groupId>org.scijava</groupId>
+			<artifactId>scijava-config</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>com.opencsv</groupId>
