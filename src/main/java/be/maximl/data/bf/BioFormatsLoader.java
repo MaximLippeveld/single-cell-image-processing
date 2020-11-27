@@ -106,7 +106,7 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
 
   @Override
   public boolean hasNext() {
-    if (currentIndex < currentFinalIndex - 2) {
+    if (currentIndex < currentFinalIndex) {
       return true;
     }
     return lister.hasNext();
@@ -120,7 +120,7 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
 
       currentIndex += 2;
 
-      if (currentIndex == currentFinalIndex) {
+      if (currentIndex > currentFinalIndex) {
         currentIndex = 0;
 
         // initialize new reader

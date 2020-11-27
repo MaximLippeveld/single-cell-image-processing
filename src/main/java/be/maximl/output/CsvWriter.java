@@ -53,9 +53,11 @@ public class CsvWriter extends Thread {
                     }
                 }
 
-            } catch (ExecutionException | InterruptedException e) {
-                log.error("Interrupted while waiting");
+            } catch (ExecutionException e) {
+                log.error("Exception while computing a feature vector.");
                 e.printStackTrace();
+            } catch (InterruptedException e) {
+                log.error("Interrupted while waiting");
             } finally {
                 log.info("Finalize writer");
                 writer.flush();
