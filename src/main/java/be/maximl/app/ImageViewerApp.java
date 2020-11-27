@@ -6,19 +6,32 @@ import be.maximl.data.bf.BioFormatsLoader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
+import net.imagej.display.ImageDisplay;
+import net.imagej.overlay.*;
+import net.imagej.roi.DefaultROIService;
+import net.imagej.roi.ROIService;
 import net.imglib2.Cursor;
 import net.imglib2.IterableInterval;
+import net.imglib2.RealLocalizable;
+import net.imglib2.roi.EllipseRegionOfInterest;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
+import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 import org.scijava.ui.UIService;
+import org.scijava.util.ColorRGB;
+import org.scijava.util.Colors;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class ImageViewerApp {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
         ImageJ ij = new ImageJ();
 
@@ -49,10 +62,6 @@ public class ImageViewerApp {
         }
 
         Image img = relation.next();
-        UIService service = ij.ui();
-
-        service.show(Views.hyperSlice(img.getImg(), 2, 0));
-        service.show(Masks.toRandomAccessibleInterval(img.getMask(0)));
 
         IterableInterval<UnsignedShortType> it = Regions.sample(img.getMask(0), Views.hyperSlice(img.getImg(), 2, 0));
 
@@ -67,6 +76,33 @@ public class ImageViewerApp {
         }
         ij.log().info("COUNT " + counter);
 
+        ImageDisplay id = (ImageDisplay) ij.display().createDisplay(img.getImg());
+
+        Polygon2D polygon = ij.op().geom().contour(Masks.toRandomAccessibleInterval(img.getMask(0)), true);
+        ij.log().info(ij.op().geom().size(polygon));
+
+        List<Overlay> overlays = new ArrayList<>();
+        List<RealLocalizable> vertices = polygon.vertices();
+        double[] posA = vertices.get(0).positionAsDoubleArray();
+        double[] posB;
+        for(int i = 1; i<vertices.size(); i++) {
+            posB = vertices.get(i).positionAsDoubleArray();
+            LineOverlay line = new LineOverlay(ij.getContext());
+            line.setAlpha(200);
+            line.setFillColor(Colors.CHOCOLATE);
+            line.setLineWidth(1);
+            line.setLineStart(posA);
+            line.setLineEnd(posB);
+            overlays.add(line);
+
+            ij.log().info("line from " + Arrays.toString(posA) + " to " + Arrays.toString(posB));
+
+            posA = posB.clone();
+        }
+
+        ij.overlay().addOverlays(id, overlays);
+
+        ij.ui().show(id);
 
     }
 

@@ -10,7 +10,6 @@ import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
 import net.imglib2.type.numeric.RealType;
-import org.scijava.ItemIO;
 import org.scijava.command.Command;
 import org.scijava.command.CommandModule;
 import org.scijava.log.LogService;
@@ -143,7 +142,7 @@ public class FeatureApp<T extends RealType<T>> implements Command {
     inputArgs.put("inputDirectory", new File("/home/maximl/Data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/"));
     inputArgs.put("outputFile", new File("output.csv"));
     inputArgs.put("imageLimit", 1000);
-    inputArgs.put("fileLimit", -1);
+    inputArgs.put("fileLimit", 1);
     inputArgs.put("channels", "0,3,5,6,10");
     inputArgs.put("extensions", "cif");
 

@@ -49,7 +49,7 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
     imgIndex = index;
     maskIndex = index+1;
 
-    image = new BioFormatsImage();
+    image = new BioFormatsImage(imgIndex/2);
     image.setDirectory(reader.getMetadata().getSourceLocation().getName());
     image.setFilename(reader.getMetadata().getSourceLocation().getName());
     image.setExtension(reader.getFormatName());

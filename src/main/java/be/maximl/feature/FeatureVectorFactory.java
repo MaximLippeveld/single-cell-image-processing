@@ -9,6 +9,7 @@ import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.roi.MaskInterval;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
+import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 
@@ -49,11 +50,11 @@ public class FeatureVectorFactory {
             return map.values().toArray(new String[0]);
         }
 
-        public void computeFeature(
+        public <T> void computeFeature(
                 String key,
                 int channel,
-                Function<IterableInterval<UnsignedShortType>, Double> func,
-                IterableInterval<UnsignedShortType> slice,
+                Function<T, Double> func,
+                T slice,
                 boolean compute) {
             if(compute) {
                 add(key, channel, func.apply(slice));
@@ -68,6 +69,7 @@ public class FeatureVectorFactory {
         FeatureVector vec = new FeatureVector();
         vec.add("file", img.getFilename());
         vec.add("directory", img.getDirectory());
+        vec.add("id", img.getId());
 
         RandomAccessibleInterval<UnsignedShortType> libImg = img.getImg();
 
@@ -81,6 +83,7 @@ public class FeatureVectorFactory {
             slice = Regions.sample(img.getMask(i), Views.hyperSlice(libImg, 2, i));
             channel = img.getChannels().get(i);
 
+            // intensity features
             vec.computeFeature("geometricMean", channel, s -> opService.stats().geometricMean(s).getRealDouble(), slice, compute);
             vec.computeFeature("harmonicMean", channel, s -> opService.stats().harmonicMean(s).getRealDouble(), slice, compute);
             vec.computeFeature("stdDev", channel, s -> opService.stats().stdDev(s).getRealDouble(), slice, compute);
@@ -92,10 +95,14 @@ public class FeatureVectorFactory {
             vec.computeFeature("skewness", channel, s -> opService.stats().skewness(s).getRealDouble(), slice, compute);
             vec.computeFeature("moment3AboutMean", channel, s -> opService.stats().moment3AboutMean(s).getRealDouble(), slice, compute);
 
-//            ZernikeNamespace zernike = s -> opService.zernike();
-//            vec.add("zernikeMagnitude", channel, zernike.magnitude(s, 0, 1).getRealDouble());
-//            vec.add("zernikePhase", channel, zernike.phase(s, 0, 1).getRealDouble());
-//
+            // geometry features
+            Polygon2D polygon = opService.geom().contour(Masks.toRandomAccessibleInterval(mask), false);
+            vec.computeFeature("eccentricity", channel, s -> opService.geom().eccentricity(s).getRealDouble(), polygon, compute);
+            vec.computeFeature("circularity", channel, s -> opService.geom().circularity(s).getRealDouble(), polygon, compute);
+            vec.computeFeature("roundness", channel, s -> opService.geom().roundness(s).getRealDouble(), polygon, compute);
+            vec.computeFeature("convexity", channel, s -> opService.geom().convexity(s).getRealDouble(), polygon, compute);
+            vec.computeFeature("size", channel, s -> opService.geom().size(s).getRealDouble(), polygon, compute);
+
             HaralickNamespace haralick = opService.haralick();
             for ( MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 vec.computeFeature(

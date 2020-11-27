@@ -11,6 +11,9 @@ import java.io.Serializable;
 import java.util.List;
 
 public interface Image extends Serializable {
+
+    int getId();
+
     short[] getPlanes();
 
     void setPlanes(short[] planes);

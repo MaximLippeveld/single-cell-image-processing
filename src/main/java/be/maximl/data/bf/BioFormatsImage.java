@@ -39,6 +39,16 @@ public class BioFormatsImage implements be.maximl.data.Image {
   private ArrayImg<NativeBoolType, BooleanArray> maskImg;
   private boolean[] masks;
   final private long[] dims = new long[3];
+  final private int id;
+
+  public BioFormatsImage(int id) {
+    this.id = id;
+  }
+
+  @Override
+  public int getId() {
+    return id;
+  }
 
   @Override
   public short[] getPlanes() {
