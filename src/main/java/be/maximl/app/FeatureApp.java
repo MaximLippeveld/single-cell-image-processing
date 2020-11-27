@@ -10,6 +10,7 @@ import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
 import net.imglib2.type.numeric.RealType;
+import org.scijava.app.StatusService;
 import org.scijava.command.Command;
 import org.scijava.command.CommandModule;
 import org.scijava.log.LogService;
@@ -31,25 +32,34 @@ public class FeatureApp<T extends RealType<T>> implements Command {
   private OpService opService;
 
   @Parameter
+  private StatusService statusService;
+
+  @Parameter
   private LogService log;
 
-  @Parameter
+  @Parameter(
+          label="Image limit",
+          description = "Maximum amount of images to load from each file.")
   private int imageLimit;
 
-  @Parameter
+  @Parameter(label="File limit",
+          description = "Maximum amount of files to process.")
   private int fileLimit;
 
-  @Parameter
+  @Parameter(label="Channels", description="Channels to process (comma-separated).")
   private String channels;
 
-  @Parameter
+  @Parameter(label="Extensions", description = "Extensions to scan for (comma-separated).")
   private String extensions;
 
-  @Parameter
+  @Parameter(label="Input directory", description = "Directory containing input files.")
   private File inputDirectory;
 
-  @Parameter
-  private File outputFile;
+  @Parameter(label="Output directory", description = "Directory to which output may be written.")
+  private File outputDirectory;
+
+  @Parameter(label="Output filename", description = "Filename of file containing feature vectors.")
+  private String outputFilename;
 
   @Override
   public void run() {
@@ -101,7 +111,8 @@ public class FeatureApp<T extends RealType<T>> implements Command {
     producer.start();
 
     try {
-      CsvWriter csvWriter = new CsvWriter(log, completionService, outputFile);
+      File output = new File(outputDirectory, outputFilename);
+      CsvWriter csvWriter = new CsvWriter(log, completionService, output, statusService);
       csvWriter.start();
 
       try {
@@ -140,7 +151,8 @@ public class FeatureApp<T extends RealType<T>> implements Command {
 
     final Map<String, Object> inputArgs = new HashMap<>();
     inputArgs.put("inputDirectory", new File("/home/maximl/Data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/"));
-    inputArgs.put("outputFile", new File("output.csv"));
+    inputArgs.put("outputDirectory", new File("."));
+    inputArgs.put("outputFilename", "output.csv");
     inputArgs.put("imageLimit", 1000);
     inputArgs.put("fileLimit", 1);
     inputArgs.put("channels", "0,3,5,6,10");

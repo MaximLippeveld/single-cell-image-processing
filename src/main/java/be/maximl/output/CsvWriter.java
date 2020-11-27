@@ -4,6 +4,7 @@ import be.maximl.feature.FeatureVectorFactory;
 import com.opencsv.CSVWriter;
 import com.opencsv.CSVWriterBuilder;
 import com.opencsv.ICSVWriter;
+import org.scijava.app.StatusService;
 import org.scijava.log.LogService;
 
 import java.io.File;
@@ -20,12 +21,14 @@ public class CsvWriter extends Thread {
     final private ICSVWriter csvWriter;
     final private Writer writer;
     final private AtomicInteger countWritten = new AtomicInteger();
+    final private StatusService statusService;
 
-    public CsvWriter(LogService log, CompletionService<FeatureVectorFactory.FeatureVector> completionService, File file) throws IOException {
+    public CsvWriter(LogService log, CompletionService<FeatureVectorFactory.FeatureVector> completionService, File file, StatusService statusService) throws IOException {
         this.log = log;
         this.completionService = completionService;
 
         writer = new FileWriter(file);
+        this.statusService = statusService;
         CSVWriterBuilder builder = new CSVWriterBuilder(writer);
         builder.withQuoteChar(CSVWriter.NO_QUOTE_CHARACTER);
         csvWriter = builder.build();
