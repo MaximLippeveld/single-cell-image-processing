@@ -106,10 +106,7 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
 
   @Override
   public boolean hasNext() {
-    if (currentIndex < currentFinalIndex) {
-      return true;
-    }
-    return lister.hasNext();
+    return currentIndex < currentFinalIndex;
   }
 
   @Override
@@ -120,13 +117,15 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
 
       currentIndex += 2;
 
-      if (currentIndex > currentFinalIndex) {
-        currentIndex = 0;
+      if (currentIndex >= currentFinalIndex) {
+        if (lister.hasNext()) {
+          currentIndex = 0;
 
-        // initialize new reader
-        FileLocation loc = new FileLocation(lister.next());
-        currentReader = scifio.initializer().initializeReader(loc);
-        currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
+          // initialize new reader
+          FileLocation loc = new FileLocation(lister.next());
+          currentReader = scifio.initializer().initializeReader(loc);
+          currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
+        }
       }
 
       return image;

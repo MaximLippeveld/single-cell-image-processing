@@ -51,7 +51,12 @@ public class CsvWriter extends Thread {
                     csvWriter.writeNext(vec.get().getLine());
 
                     synchronized (countWritten) {
-                        countWritten.getAndIncrement();
+                        int c = countWritten.getAndIncrement();
+
+                        if (c % 1000 == 0) {
+                            log.info("Written " + c + " vectors.");
+                        }
+
                         countWritten.notify();
                     }
                 }

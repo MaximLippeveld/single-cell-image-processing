@@ -39,11 +39,11 @@ public class FeatureApp<T extends RealType<T>> implements Command {
 
   @Parameter(
           label="Image limit",
-          description = "Maximum amount of images to load from each file.")
+          description = "Maximum amount of images to load from each file (-1 loads all images).")
   private int imageLimit;
 
   @Parameter(label="File limit",
-          description = "Maximum amount of files to process.")
+          description = "Maximum amount of files to process (-1 processes all files).")
   private int fileLimit;
 
   @Parameter(label="Channels", description="Channels to process (comma-separated).")
@@ -153,9 +153,9 @@ public class FeatureApp<T extends RealType<T>> implements Command {
     inputArgs.put("inputDirectory", new File("/home/maximl/Data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/"));
     inputArgs.put("outputDirectory", new File("."));
     inputArgs.put("outputFilename", "output.csv");
-    inputArgs.put("imageLimit", 1000);
+    inputArgs.put("imageLimit", -1);
     inputArgs.put("fileLimit", 1);
-    inputArgs.put("channels", "0,3,5,6,10");
+    inputArgs.put("channels", "0");
     inputArgs.put("extensions", "cif");
 
     final ImageJ ij = new ImageJ();
