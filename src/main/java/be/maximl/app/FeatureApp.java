@@ -30,9 +30,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
 public class FeatureApp<T extends RealType<T>> implements Command {
 
-  final static String IMAGELIMIT_DESC = "Maximum number of images to load.";
+  private static final String IMAGELIMIT_DESC = "Maximum number of images to load (-1 loads all images).";
   private static final String INPUTDIR_DESC = "Directory containing input files.";
-  private static final String FILELIMIT_DESC = "Maximum amount of files to process (-1 processes all files).";
+  private static final String FILELIMIT_DESC = "Maximum number of files to process (-1 processes all files).";
   private static final String OUTPUTDIR_DESC = "Directory to which output may be written.";
   private static final String OUTPUTFILENAME_DESC = "Filename of file containing feature vectors.";
   private static final String CHANNELS_DESC = "Channels to process (comma-separated).";
@@ -161,41 +161,52 @@ public class FeatureApp<T extends RealType<T>> implements Command {
     options.addOption("f", "outputFilename", true, FeatureApp.OUTPUTFILENAME_DESC);
     options.addOption("il", "imageLimit", true, FeatureApp.IMAGELIMIT_DESC);
     options.addOption("fl", "fileLimit", true, FeatureApp.FILELIMIT_DESC);
+    options.addOption("h", "help", false, "Print usage.");
     options.addRequiredOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
     options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
     options.addRequiredOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
 
+    HelpFormatter formatter = new HelpFormatter();
+
     CommandLineParser parser = new DefaultParser();
-    CommandLine cmd = parser.parse( options, args);
+    try {
+      CommandLine cmd = parser.parse( options, args);
 
-    final Map<String, Object> inputArgs = new HashMap<>();
-    inputArgs.put("imageLimit", -1);
-    inputArgs.put("fileLimit", -1);
-    inputArgs.put("outputFilename", "output.csv");
-    inputArgs.put("outputDirectory", new File("."));
-
-    for (Option option : cmd.getOptions()) {
-      String longOpt = option.getLongOpt();
-      if (longOpt.matches("^.+Directory$")) {
-        inputArgs.put(longOpt, new File(option.getValue()));
-      } else {
-        inputArgs.put(longOpt, option.getValue());
+      if(cmd.hasOption("help")) {
+        if ((boolean)cmd.getParsedOptionValue("help")) {
+          formatter.printHelp("SCI Feature extraction tool", options);
+        }
       }
+
+      final Map<String, Object> inputArgs = new HashMap<>();
+      inputArgs.put("imageLimit", -1);
+      inputArgs.put("fileLimit", -1);
+      inputArgs.put("outputFilename", "output.csv");
+      inputArgs.put("outputDirectory", new File("."));
+
+      for (Option option : cmd.getOptions()) {
+        String longOpt = option.getLongOpt();
+        if (longOpt.matches("^.+Directory$")) {
+          inputArgs.put(longOpt, new File(option.getValue()));
+        } else {
+          inputArgs.put(longOpt, option.getValue());
+        }
+      }
+
+      final ImageJ ij = new ImageJ();
+
+      final long startTime = System.currentTimeMillis();
+
+      Future<CommandModule> command = ij.command().run(FeatureApp.class, true, inputArgs);
+      ij.module().waitFor(command);
+
+      final long endTime = System.currentTimeMillis();
+      double execTime = (endTime - startTime)/1000.;
+      System.out.println("Execution time in s: " + execTime);
+
+      ij.getContext().dispose();
+    } catch (MissingOptionException e) {
+      formatter.printHelp( "SCI Feature extraction tool", options);
     }
-
-    final ImageJ ij = new ImageJ();
-
-    // Import directory
-
-    final long startTime = System.currentTimeMillis();
-
-    Future<CommandModule> command = ij.command().run(FeatureApp.class, true, inputArgs);
-    ij.module().waitFor(command);
-
-    final long endTime = System.currentTimeMillis();
-    double execTime = (endTime - startTime)/1000.;
-    System.out.println("Execution time in s: " + execTime);
-
-    ij.getContext().dispose();
   }
 }
