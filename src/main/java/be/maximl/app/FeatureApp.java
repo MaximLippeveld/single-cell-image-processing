@@ -10,6 +10,7 @@ import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
 import net.imglib2.type.numeric.RealType;
+import org.apache.commons.cli.*;
 import org.scijava.app.StatusService;
 import org.scijava.command.Command;
 import org.scijava.command.CommandModule;
@@ -20,6 +21,7 @@ import org.scijava.plugin.Plugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -27,6 +29,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
 public class FeatureApp<T extends RealType<T>> implements Command {
+
+  final static String IMAGELIMIT_DESC = "Maximum number of images to load.";
+  private static final String INPUTDIR_DESC = "Directory containing input files.";
+  private static final String FILELIMIT_DESC = "Maximum amount of files to process (-1 processes all files).";
+  private static final String OUTPUTDIR_DESC = "Directory to which output may be written.";
+  private static final String OUTPUTFILENAME_DESC = "Filename of file containing feature vectors.";
+  private static final String CHANNELS_DESC = "Channels to process (comma-separated).";
+  private static final String EXTENSIONS_DESC = "Extensions to scan for (comma-separated).";
 
   @Parameter
   private OpService opService;
@@ -37,28 +47,25 @@ public class FeatureApp<T extends RealType<T>> implements Command {
   @Parameter
   private LogService log;
 
-  @Parameter(
-          label="Image limit",
-          description = "Maximum amount of images to load from each file (-1 loads all images).")
+  @Parameter(label="Image limit", description = FeatureApp.IMAGELIMIT_DESC)
   private int imageLimit;
 
-  @Parameter(label="File limit",
-          description = "Maximum amount of files to process (-1 processes all files).")
+  @Parameter(label="File limit", description = FeatureApp.FILELIMIT_DESC)
   private int fileLimit;
 
-  @Parameter(label="Channels", description="Channels to process (comma-separated).")
+  @Parameter(label="Channels", description=FeatureApp.CHANNELS_DESC)
   private String channels;
 
-  @Parameter(label="Extensions", description = "Extensions to scan for (comma-separated).")
+  @Parameter(label="Extensions", description = FeatureApp.EXTENSIONS_DESC)
   private String extensions;
 
-  @Parameter(label="Input directory", description = "Directory containing input files.")
+  @Parameter(label="Input directory", description = FeatureApp.INPUTDIR_DESC)
   private File inputDirectory;
 
-  @Parameter(label="Output directory", description = "Directory to which output may be written.")
+  @Parameter(label="Output directory", description = FeatureApp.OUTPUTDIR_DESC)
   private File outputDirectory;
 
-  @Parameter(label="Output filename", description = "Filename of file containing feature vectors.")
+  @Parameter(label="Output filename", description = FeatureApp.OUTPUTFILENAME_DESC)
   private String outputFilename;
 
   @Override
@@ -147,16 +154,34 @@ public class FeatureApp<T extends RealType<T>> implements Command {
   /**
    * Starts the application when called from command line
    */
-  public static void main(String[] args) {
+  public static void main(String[] args) throws ParseException {
+
+    Options options = new Options();
+    options.addOption("o", "outputDirectory", true, FeatureApp.OUTPUTDIR_DESC);
+    options.addOption("f", "outputFilename", true, FeatureApp.OUTPUTFILENAME_DESC);
+    options.addOption("il", "imageLimit", true, FeatureApp.IMAGELIMIT_DESC);
+    options.addOption("fl", "fileLimit", true, FeatureApp.FILELIMIT_DESC);
+    options.addRequiredOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
+    options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
+    options.addRequiredOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
+
+    CommandLineParser parser = new DefaultParser();
+    CommandLine cmd = parser.parse( options, args);
 
     final Map<String, Object> inputArgs = new HashMap<>();
-    inputArgs.put("inputDirectory", new File("/home/maximl/Data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/"));
-    inputArgs.put("outputDirectory", new File("."));
-    inputArgs.put("outputFilename", "output.csv");
     inputArgs.put("imageLimit", -1);
-    inputArgs.put("fileLimit", 1);
-    inputArgs.put("channels", "0");
-    inputArgs.put("extensions", "cif");
+    inputArgs.put("fileLimit", -1);
+    inputArgs.put("outputFilename", "output.csv");
+    inputArgs.put("outputDirectory", new File("."));
+
+    for (Option option : cmd.getOptions()) {
+      String longOpt = option.getLongOpt();
+      if (longOpt.matches("^.+Directory$")) {
+        inputArgs.put(longOpt, new File(option.getValue()));
+      } else {
+        inputArgs.put(longOpt, option.getValue());
+      }
+    }
 
     final ImageJ ij = new ImageJ();
 
