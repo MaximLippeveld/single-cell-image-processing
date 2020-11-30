@@ -42,6 +42,10 @@ public class FeatureVectorFactory {
             map.put("meta:"+key, value);
         }
 
+        public void add(String key, int value) {
+            map.put("meta:"+key, Integer.toString(value));
+        }
+
         public Map<String, String> getMap() {
             return map;
         }
