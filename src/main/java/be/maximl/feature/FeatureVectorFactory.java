@@ -111,12 +111,17 @@ public class FeatureVectorFactory {
             for ( MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 vec.computeFeature(
                         "haralickContrast" + orientation, channel,
-                        s -> haralick.contrast(s, 50, 2, orientation).getRealDouble(),
+                        s -> haralick.contrast(s, 10, 5, orientation).getRealDouble(),
                         slice, compute
                 );
                 vec.computeFeature(
                         "haralickCorrelation" + orientation, channel,
-                        s -> haralick.correlation(s, 50, 2, orientation).getRealDouble(),
+                        s -> haralick.correlation(s, 10, 5, orientation).getRealDouble(),
+                        slice, compute
+                );
+                vec.computeFeature(
+                        "haralickEntropy" + orientation, channel,
+                        s -> haralick.entropy(s, 10, 5, orientation).getRealDouble(),
                         slice, compute
                 );
             }
