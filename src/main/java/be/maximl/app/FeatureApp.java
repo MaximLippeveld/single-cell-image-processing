@@ -42,6 +42,7 @@ public class FeatureApp implements Command {
   private static final String CHANNELS_DESC = "Channels to process (comma-separated).";
   private static final String EXTENSIONS_DESC = "Extensions to scan for (comma-separated).";
   private static final String POOLSIZE_DESC = "Specify the amount of executors used for feature computation. Default is number of processors.";
+  private static final String FEATURESET_DESC = "Specify which featureset to compute.";
 
   @Parameter
   private OpService opService;
@@ -76,6 +77,9 @@ public class FeatureApp implements Command {
   @Parameter(label="Executor pool size", description = FeatureApp.POOLSIZE_DESC)
   private int executorPoolSize;
 
+  @Parameter(label="Feature set", description = FeatureApp.FEATURESET_DESC)
+  private String featureSet;
+
   @Override
   public void run() {
 
@@ -108,8 +112,7 @@ public class FeatureApp implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    List<String> featuresToCompute = new ArrayList<>();
-    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, featuresToCompute);
+    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, featureSet);
     Thread producer = new Thread(() -> {
       int rejected = 0;
       while(loader.hasNext()) {
@@ -179,6 +182,7 @@ public class FeatureApp implements Command {
     options.addOption("fl", "fileLimit", true, FeatureApp.FILELIMIT_DESC);
     options.addOption("h", "help", false, "Print usage.");
     options.addOption("ex", "executorPoolSize", true, FeatureApp.POOLSIZE_DESC);
+    options.addOption("f", "featureSet", true, FeatureApp.FEATURESET_DESC);
     options.addRequiredOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
     options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
     options.addRequiredOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
@@ -201,6 +205,7 @@ public class FeatureApp implements Command {
       inputArgs.put("outputFilename", "output.csv");
       inputArgs.put("outputDirectory", new File("."));
       inputArgs.put("executorPoolSize", Runtime.getRuntime().availableProcessors());
+      inputArgs.put("featureSet", "small");
 
       for (Option option : cmd.getOptions()) {
         String longOpt = option.getLongOpt();
