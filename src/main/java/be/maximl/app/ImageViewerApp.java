@@ -46,7 +46,7 @@ public class ImageViewerApp {
         lister.setPath(importDirectory);
         lister.addExtension("cif");
 
-        Loader relation = new BioFormatsLoader(ij.log());
+        Loader<UnsignedShortType> relation = new BioFormatsLoader(ij.log());
         for (int i=0;i<3;i++) {
             relation.addChannel(i);
         }
@@ -61,7 +61,7 @@ public class ImageViewerApp {
             e.printStackTrace();
         }
 
-        Image img = relation.next();
+        Image<UnsignedShortType> img = relation.next();
 
         IterableInterval<UnsignedShortType> it = Regions.sample(img.getMask(0), Views.hyperSlice(img.getImg(), 2, 0));
 

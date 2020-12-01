@@ -1,5 +1,6 @@
 package be.maximl.data.bf;
 
+import be.maximl.data.Image;
 import net.imglib2.Localizable;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
@@ -24,7 +25,7 @@ import java.util.function.Predicate;
  * 
  * @author jgp
  */
-public class BioFormatsImage implements be.maximl.data.Image {
+public class BioFormatsImage implements Image<UnsignedShortType> {
   private static final long serialVersionUID = -2589804417011601051L;
 
   final private static int CHANNELDIM = 2;

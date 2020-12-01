@@ -1,11 +1,13 @@
 package be.maximl.data.bf;
 
 import be.maximl.data.Image;
+import be.maximl.data.Loader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
 import io.scif.FormatException;
 import io.scif.Plane;
 import io.scif.Reader;
 import io.scif.SCIFIO;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.scijava.io.location.FileLocation;
 import org.scijava.log.LogService;
 
@@ -17,7 +19,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 
-public class BioFormatsLoader implements be.maximl.data.Loader {
+public class BioFormatsLoader implements Loader<UnsignedShortType> {
   private static final long serialVersionUID = 4598175080399877334L;
   private final LogService log;
   private Iterator<File> lister;
@@ -34,7 +36,7 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
   }
 
   @Override
-  public Image imageFromReader(Reader reader, int index) throws IOException, FormatException {
+  public Image<UnsignedShortType> imageFromReader(Reader reader, int index) throws IOException, FormatException {
 
     int imgIndex;
     int maskIndex;
@@ -44,7 +46,7 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
     short[] flatData;
     boolean[] maskData;
     short[] planeTmp;
-    Image image;
+    Image<UnsignedShortType> image;
 
     imgIndex = index;
     maskIndex = index+1;
@@ -110,10 +112,10 @@ public class BioFormatsLoader implements be.maximl.data.Loader {
   }
 
   @Override
-  public Image next() {
+  public Image<UnsignedShortType> next() {
 
     try {
-      Image image = imageFromReader(currentReader, currentIndex);
+      Image<UnsignedShortType> image = imageFromReader(currentReader, currentIndex);
 
       currentIndex += 2;
 

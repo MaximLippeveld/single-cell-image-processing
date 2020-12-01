@@ -10,7 +10,9 @@ import be.maximl.output.FeatureVecWriter;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
 import org.scijava.app.StatusService;
 import org.scijava.command.Command;
@@ -21,14 +23,16 @@ import org.scijava.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
-public class FeatureApp<T extends RealType<T>> implements Command {
+public class FeatureApp implements Command {
 
   private static final String IMAGELIMIT_DESC = "Maximum number of images to load (-1 loads all images).";
   private static final String INPUTDIR_DESC = "Directory containing input files.";
@@ -82,7 +86,7 @@ public class FeatureApp<T extends RealType<T>> implements Command {
       lister.addExtension(extension);
     }
 
-    Loader loader = new BioFormatsLoader(log);
+    Loader<UnsignedShortType> loader = new BioFormatsLoader(log);
     for (String channel : channels.split(",")) {
       loader.addChannel(Integer.parseInt(channel));
     }
@@ -104,11 +108,12 @@ public class FeatureApp<T extends RealType<T>> implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    FeatureVectorFactory factory = new FeatureVectorFactory(opService);
+    List<String> featuresToCompute = new ArrayList<>();
+    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, featuresToCompute);
     Thread producer = new Thread(() -> {
       int rejected = 0;
       while(loader.hasNext()) {
-        Image image = loader.next();
+        Image<UnsignedShortType> image = loader.next();
         try {
           completionService.submit(() -> factory.computeVector(image));
           counter.incrementAndGet();

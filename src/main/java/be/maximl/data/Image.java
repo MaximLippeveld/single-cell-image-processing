@@ -4,13 +4,15 @@ import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.basictypeaccess.array.BooleanArray;
 import net.imglib2.roi.MaskInterval;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
+import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 
 import java.io.Serializable;
 import java.util.List;
 
-public interface Image extends Serializable {
+public interface Image<T extends RealType<T>> extends Serializable {
 
     int getId();
 
@@ -22,7 +24,7 @@ public interface Image extends Serializable {
 
     void setPlaneLengths(long[] planeLengths);
 
-    RandomAccessibleInterval<UnsignedShortType> getImg();
+    RandomAccessibleInterval<T> getImg();
 
     ArrayImg<NativeBoolType, BooleanArray> getMaskImg();
 
