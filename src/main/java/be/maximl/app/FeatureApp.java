@@ -150,6 +150,8 @@ public class FeatureApp<T extends RealType<T>> implements Command {
         endTime = System.currentTimeMillis();
         execTime = (endTime - startTime)/1000.;
         log.info("CSV Writer finished after " + execTime + "s");
+
+        executor.shutdown();
       } catch (InterruptedException e) {
         log.error("Interrupted while shutting down");
         e.printStackTrace();
@@ -191,7 +193,7 @@ public class FeatureApp<T extends RealType<T>> implements Command {
       final Map<String, Object> inputArgs = new HashMap<>();
       inputArgs.put("imageLimit", -1);
       inputArgs.put("fileLimit", -1);
-      inputArgs.put("outputFilename", "output_allstains1.csv");
+      inputArgs.put("outputFilename", "output.csv");
       inputArgs.put("outputDirectory", new File("."));
       inputArgs.put("executorPoolSize", Runtime.getRuntime().availableProcessors());
 
