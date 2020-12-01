@@ -68,7 +68,6 @@ public class CsvWriter extends Thread {
                 log.error("Interrupted while waiting");
             } finally {
                 log.info("Finalize writer");
-                writer.flush();
                 writer.close();
             }
         } catch (IOException e) {

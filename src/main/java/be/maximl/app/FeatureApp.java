@@ -37,6 +37,7 @@ public class FeatureApp<T extends RealType<T>> implements Command {
   private static final String OUTPUTFILENAME_DESC = "Filename of file containing feature vectors.";
   private static final String CHANNELS_DESC = "Channels to process (comma-separated).";
   private static final String EXTENSIONS_DESC = "Extensions to scan for (comma-separated).";
+  private static final String POOLSIZE_DESC = "Specify the amount of executors used for feature computation. Default is number of processors.";
 
   @Parameter
   private OpService opService;
@@ -68,6 +69,9 @@ public class FeatureApp<T extends RealType<T>> implements Command {
   @Parameter(label="Output filename", description = FeatureApp.OUTPUTFILENAME_DESC)
   private String outputFilename;
 
+  @Parameter(label="Executor pool size", description = FeatureApp.POOLSIZE_DESC)
+  private int executorPoolSize;
+
   @Override
   public void run() {
 
@@ -96,7 +100,7 @@ public class FeatureApp<T extends RealType<T>> implements Command {
 
     int queueCapacity = 50000;
     BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(queueCapacity);
-    ExecutorService executor = new ThreadPoolExecutor(30, 30, 1000, TimeUnit.MILLISECONDS, queue);
+    ExecutorService executor = new ThreadPoolExecutor(executorPoolSize, executorPoolSize, 1000, TimeUnit.MILLISECONDS, queue);
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
@@ -115,6 +119,9 @@ public class FeatureApp<T extends RealType<T>> implements Command {
       }
       log.error("Encountered " + rejected + " rejected tasks");
     });
+
+
+    final long startTime = System.currentTimeMillis();
     producer.start();
 
     try {
@@ -127,9 +134,17 @@ public class FeatureApp<T extends RealType<T>> implements Command {
         int producerCount = counter.get();
         log.info("PRODUCER COUNT " + producerCount);
 
+        long endTime = System.currentTimeMillis();
+        double execTime = (endTime - startTime)/1000.;
+        log.info("Task producer finished after " + execTime + "s");
+
         executor.shutdown();
         boolean res = executor.awaitTermination(1, TimeUnit.SECONDS);
-        log.info("Executor tasks finished " + res);
+        log.info("Task executor finished " + res);
+
+        endTime = System.currentTimeMillis();
+        execTime = (endTime - startTime)/1000.;
+        log.info("Task executor finished after " + execTime + "s");
 
         if (csvWriter.isAlive()) {
           synchronized (csvWriter.getCountWritten()) {
@@ -141,8 +156,11 @@ public class FeatureApp<T extends RealType<T>> implements Command {
           csvWriter.join();
         }
         log.info("WRITER COUNT " + csvWriter.getCountWritten());
+        endTime = System.currentTimeMillis();
+        execTime = (endTime - startTime)/1000.;
+        log.info("CSV Writer finished after " + execTime + "s");
       } catch (InterruptedException e) {
-        log.error("Interrupted here");
+        log.error("Interrupted while shutting down");
         e.printStackTrace();
       }
     } catch (IOException e) {
@@ -162,6 +180,7 @@ public class FeatureApp<T extends RealType<T>> implements Command {
     options.addOption("il", "imageLimit", true, FeatureApp.IMAGELIMIT_DESC);
     options.addOption("fl", "fileLimit", true, FeatureApp.FILELIMIT_DESC);
     options.addOption("h", "help", false, "Print usage.");
+    options.addOption("ex", "executorPoolSize", true, FeatureApp.POOLSIZE_DESC);
     options.addRequiredOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
     options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
     options.addRequiredOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
@@ -181,8 +200,9 @@ public class FeatureApp<T extends RealType<T>> implements Command {
       final Map<String, Object> inputArgs = new HashMap<>();
       inputArgs.put("imageLimit", -1);
       inputArgs.put("fileLimit", -1);
-      inputArgs.put("outputFilename", "output.csv");
+      inputArgs.put("outputFilename", "output_allstains1.csv");
       inputArgs.put("outputDirectory", new File("."));
+      inputArgs.put("executorPoolSize", Runtime.getRuntime().availableProcessors());
 
       for (Option option : cmd.getOptions()) {
         String longOpt = option.getLongOpt();
@@ -195,15 +215,8 @@ public class FeatureApp<T extends RealType<T>> implements Command {
 
       final ImageJ ij = new ImageJ();
 
-      final long startTime = System.currentTimeMillis();
-
       Future<CommandModule> command = ij.command().run(FeatureApp.class, true, inputArgs);
       ij.module().waitFor(command);
-
-      final long endTime = System.currentTimeMillis();
-      double execTime = (endTime - startTime)/1000.;
-      System.out.println("Execution time in s: " + execTime);
-
       ij.getContext().dispose();
     } catch (MissingOptionException e) {
       formatter.printHelp( "SCI Feature extraction tool", options);

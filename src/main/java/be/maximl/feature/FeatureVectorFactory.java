@@ -3,6 +3,7 @@ package be.maximl.feature;
 import be.maximl.data.Image;
 import net.imagej.ops.OpService;
 import net.imagej.ops.features.haralick.HaralickNamespace;
+import net.imagej.ops.features.zernike.ZernikeNamespace;
 import net.imagej.ops.image.cooccurrenceMatrix.MatrixOrientation2D;
 import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccessibleInterval;
@@ -108,26 +109,37 @@ public class FeatureVectorFactory {
             vec.computeFeature("size", channel, s -> opService.geom().size(s).getRealDouble(), polygon, compute);
 
             HaralickNamespace haralick = opService.haralick();
-            for ( MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
+            for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 vec.computeFeature(
                         "haralickContrast" + orientation, channel,
-                        s -> haralick.contrast(s, 10, 5, orientation).getRealDouble(),
+                        s -> haralick.contrast(s, 50, 5, orientation).getRealDouble(),
                         slice, compute
                 );
                 vec.computeFeature(
                         "haralickCorrelation" + orientation, channel,
-                        s -> haralick.correlation(s, 10, 5, orientation).getRealDouble(),
+                        s -> haralick.correlation(s, 50, 5, orientation).getRealDouble(),
                         slice, compute
                 );
                 vec.computeFeature(
                         "haralickEntropy" + orientation, channel,
-                        s -> haralick.entropy(s, 10, 5, orientation).getRealDouble(),
+                        s -> haralick.entropy(s, 50, 5, orientation).getRealDouble(),
                         slice, compute
                 );
             }
+
+            ZernikeNamespace zernike = opService.zernike();
+            vec.computeFeature(
+                    "zernikeMagnitude", channel,
+                    s -> zernike.magnitude(s, 3, 1).getRealDouble(),
+                    slice, compute
+            );
+            vec.computeFeature(
+                    "zernikePhase", channel,
+                    s -> zernike.phase(s, 3, 1).getRealDouble(),
+                    slice, compute
+            );
         }
 
         return vec;
     }
-
 }
