@@ -12,23 +12,18 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
-public class CsvWriter extends Thread {
+public class CsvWriter extends FeatureVecWriter {
 
-    final private LogService log;
     final private CompletionService<FeatureVectorFactory.FeatureVector> completionService;
     final private ICSVWriter csvWriter;
     final private Writer writer;
-    final private AtomicInteger countWritten = new AtomicInteger();
-    final private StatusService statusService;
 
     public CsvWriter(LogService log, CompletionService<FeatureVectorFactory.FeatureVector> completionService, File file, StatusService statusService) throws IOException {
-        this.log = log;
+        super(log, statusService);
         this.completionService = completionService;
 
         writer = new FileWriter(file);
-        this.statusService = statusService;
         CSVWriterBuilder builder = new CSVWriterBuilder(writer);
         builder.withQuoteChar(CSVWriter.NO_QUOTE_CHARACTER);
         csvWriter = builder.build();
@@ -43,21 +38,21 @@ public class CsvWriter extends Thread {
                 while (!Thread.currentThread().isInterrupted()) {
                     vec = completionService.take();
 
-                    if (countWritten.get() == 0) {
+                    if (handleCount.get() == 0) {
                         String[] headers = vec.get().getMap().keySet().toArray(new String[0]);
                         csvWriter.writeNext(headers);
                     }
 
                     csvWriter.writeNext(vec.get().getLine());
 
-                    synchronized (countWritten) {
-                        int c = countWritten.getAndIncrement();
+                    synchronized (handleCount) {
+                        int c = handleCount.getAndIncrement();
 
                         if (c % 1000 == 0) {
                             log.info("Written " + c + " vectors.");
                         }
 
-                        countWritten.notify();
+                        handleCount.notify();
                     }
                 }
 
@@ -75,7 +70,4 @@ public class CsvWriter extends Thread {
         }
     }
 
-    public AtomicInteger getCountWritten() {
-        return countWritten;
-    }
 }

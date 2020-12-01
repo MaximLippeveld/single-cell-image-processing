@@ -6,6 +6,7 @@ import be.maximl.data.bf.BioFormatsLoader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.feature.FeatureVectorFactory;
 import be.maximl.output.CsvWriter;
+import be.maximl.output.FeatureVecWriter;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
@@ -21,7 +22,6 @@ import org.scijava.plugin.Plugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -120,14 +120,13 @@ public class FeatureApp<T extends RealType<T>> implements Command {
       log.error("Encountered " + rejected + " rejected tasks");
     });
 
-
     final long startTime = System.currentTimeMillis();
     producer.start();
 
     try {
       File output = new File(outputDirectory, outputFilename);
-      CsvWriter csvWriter = new CsvWriter(log, completionService, output, statusService);
-      csvWriter.start();
+      FeatureVecWriter writer = new CsvWriter(log, completionService, output, statusService);
+      writer.start();
 
       try {
         producer.join();
@@ -138,24 +137,16 @@ public class FeatureApp<T extends RealType<T>> implements Command {
         double execTime = (endTime - startTime)/1000.;
         log.info("Task producer finished after " + execTime + "s");
 
-        executor.shutdown();
-        boolean res = executor.awaitTermination(1, TimeUnit.SECONDS);
-        log.info("Task executor finished " + res);
-
-        endTime = System.currentTimeMillis();
-        execTime = (endTime - startTime)/1000.;
-        log.info("Task executor finished after " + execTime + "s");
-
-        if (csvWriter.isAlive()) {
-          synchronized (csvWriter.getCountWritten()) {
-            while(producerCount != csvWriter.getCountWritten().get()) {
-              csvWriter.getCountWritten().wait();
+        if (writer.isAlive()) {
+          synchronized (writer.getHandled()) {
+            while(producerCount != writer.getHandled().get()) {
+              writer.getHandled().wait();
             }
           }
-          csvWriter.interrupt();
-          csvWriter.join();
+          writer.interrupt();
+          writer.join();
         }
-        log.info("WRITER COUNT " + csvWriter.getCountWritten());
+        log.info("WRITER COUNT " + writer.getHandled());
         endTime = System.currentTimeMillis();
         execTime = (endTime - startTime)/1000.;
         log.info("CSV Writer finished after " + execTime + "s");
