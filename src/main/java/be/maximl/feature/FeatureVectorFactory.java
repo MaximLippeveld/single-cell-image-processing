@@ -7,6 +7,7 @@ import net.imagej.ops.features.tamura2d.TamuraNamespace;
 import net.imagej.ops.features.zernike.ZernikeNamespace;
 import net.imagej.ops.image.cooccurrenceMatrix.MatrixOrientation2D;
 import net.imglib2.*;
+import net.imglib2.RandomAccess;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.ImgView;
 import net.imglib2.roi.MaskInterval;
@@ -100,7 +101,7 @@ public class FeatureVectorFactory<T extends RealType<T>> {
             Function<RandomAccessibleInterval<T>, Double> func = s -> {
                 RandomAccessibleInterval<T> sobel = opService.filter().sobel(s);
                 double res = .0;
-                int count = 0;
+                double count = 0;
                 for (T t : ImgView.wrap(sobel)) {
                     res += Math.pow(t.getRealDouble(), 2);
                     count++;
@@ -213,11 +214,13 @@ public class FeatureVectorFactory<T extends RealType<T>> {
 
             RandomAccessibleInterval<T> rai = factory.create(maskedSlice.dimensionsAsLongArray());
             Cursor<T> cursor = maskedSlice.localizingCursor();
+            RandomAccess<T> rac = rai.randomAccess();
             while(cursor.hasNext()) {
                 cursor.fwd();
-                if(cursor.get().getRealDouble() > 0) {
-                    rai.randomAccess().setPosition(cursor);
-                    rai.randomAccess().get().set(cursor.get());
+                T type = cursor.get();
+                if(type.getRealDouble() > 0) {
+                    rac.setPosition(cursor);
+                    rac.get().set(type);
                 }
             }
             for(Map.Entry<String, Function<RandomAccessibleInterval<T>, Double>> entry : raiFeatureFunctions.entrySet()) {

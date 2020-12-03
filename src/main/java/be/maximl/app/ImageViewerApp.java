@@ -63,6 +63,10 @@ public class ImageViewerApp {
             e.printStackTrace();
         }
 
+        for(int i = 0; i<712; i++) {
+            relation.next();
+        }
+
         Image<UnsignedShortType> img = relation.next();
 
         IterableInterval<UnsignedShortType> it = Regions.sample(img.getMask(0), Views.hyperSlice(img.getImg(), 2, 0));
@@ -128,13 +132,16 @@ public class ImageViewerApp {
         ij.ui().show(sobel);
 
         sum = 0;
+        counter = 0;
         for ( UnsignedShortType t : ImgView.wrap(sobel)) {
-            sum += t.getRealDouble();
+            sum += Math.pow(t.getRealDouble(), 2);
+            counter++;
         }
-        ij.log().info(sum);
+        ij.log().info(Math.sqrt((double)sum/counter));
 
         ij.ui().show(Masks.toRandomAccessibleInterval(img.getMask(0)));
         ij.ui().show(ij.op().create().img(it));
+        ij.ui().show(ij.op().create().img(ImgView.wrap(sobel)));
         ij.ui().show(id);
 
     }
