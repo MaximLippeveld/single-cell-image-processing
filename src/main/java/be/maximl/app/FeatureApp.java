@@ -1,5 +1,6 @@
 package be.maximl.app;
 
+import be.maximl.data.FileLister;
 import be.maximl.data.Image;
 import be.maximl.data.Loader;
 import be.maximl.data.bf.BioFormatsLoader;
@@ -7,6 +8,10 @@ import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.feature.FeatureVectorFactory;
 import be.maximl.output.CsvWriter;
 import be.maximl.output.FeatureVecWriter;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
@@ -40,6 +45,28 @@ public class FeatureApp implements Command {
   private static final String EXTENSIONS_DESC = "Extensions to scan for (comma-separated).";
   private static final String POOLSIZE_DESC = "Specify the amount of executors used for feature computation. Default is number of processors.";
   private static final String FEATURESET_DESC = "Specify which featureset to compute.";
+  private static final String YAMLCONFIG_DESC = ".yml config file containing input files and features to compute.";
+
+  static class Config {
+    private List<File> files;
+    private List<String> features;
+
+    public List<File> getFiles() {
+      return files;
+    }
+
+    public List<String> getFeatures() {
+      return features;
+    }
+
+    public void setFiles(List<File> files) {
+      this.files = files;
+    }
+
+    public void setFeatures(List<String> features) {
+      this.features = features;
+    }
+  }
 
   @Parameter
   private OpService opService;
@@ -50,41 +77,63 @@ public class FeatureApp implements Command {
   @Parameter
   private LogService log;
 
-  @Parameter(label="Image limit", description = FeatureApp.IMAGELIMIT_DESC)
-  private int imageLimit;
-
-  @Parameter(label="File limit", description = FeatureApp.FILELIMIT_DESC)
-  private int fileLimit;
-
   @Parameter(label="Channels", description=FeatureApp.CHANNELS_DESC)
   private String channels;
-
-  @Parameter(label="Extensions", description = FeatureApp.EXTENSIONS_DESC)
-  private String extensions;
 
   @Parameter(label="Input directory", description = FeatureApp.INPUTDIR_DESC)
   private File inputDirectory;
 
-  @Parameter(label="Output directory", description = FeatureApp.OUTPUTDIR_DESC)
-  private File outputDirectory;
+  @Parameter(label="Extensions", description = FeatureApp.EXTENSIONS_DESC, required = false)
+  private String extensions = null;
 
-  @Parameter(label="Output filename", description = FeatureApp.OUTPUTFILENAME_DESC)
-  private String outputFilename;
+  @Parameter(label="Image limit", description = FeatureApp.IMAGELIMIT_DESC, required = false)
+  private int imageLimit = -1;
 
-  @Parameter(label="Executor pool size", description = FeatureApp.POOLSIZE_DESC)
-  private int executorPoolSize;
+  @Parameter(label="File limit", description = FeatureApp.FILELIMIT_DESC, required = false)
+  private int fileLimit = -1;
 
-  @Parameter(label="Feature set", description = FeatureApp.FEATURESET_DESC)
-  private String featureSet;
+  @Parameter(label="Output directory", description = FeatureApp.OUTPUTDIR_DESC, required = false)
+  private File outputDirectory = new File(".");
+
+  @Parameter(label="Output filename", description = FeatureApp.OUTPUTFILENAME_DESC, required = false)
+  private String outputFilename = "output.csv";
+
+  @Parameter(label="Executor pool size", description = FeatureApp.POOLSIZE_DESC, required = false)
+  private int executorPoolSize= Runtime.getRuntime().availableProcessors();
+
+  @Parameter(label="Feature set", description = FeatureApp.FEATURESET_DESC, required = false)
+  private String featureSet = null;
+
+  @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false)
+  private File yamlConfig = null;
 
   @Override
   public void run() {
 
-    RecursiveExtensionFilteredLister lister = new RecursiveExtensionFilteredLister();
-    lister.setFileLimit(fileLimit);
-    lister.setPath(inputDirectory.getPath());
-    for(String extension : extensions.split(",")) {
-      lister.addExtension(extension);
+    FileLister lister;
+    List<String> features;
+    if (yamlConfig != null) {
+      ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+      try {
+        Config config = mapper.readValue(yamlConfig, Config.class);
+
+        //yaml present
+        lister = (FileLister) () -> config.files;
+        features = config.features;
+      } catch (IOException e) {
+        e.printStackTrace();
+        return;
+      }
+    } else {
+      RecursiveExtensionFilteredLister refLister = new RecursiveExtensionFilteredLister();
+      refLister.setFileLimit(fileLimit);
+      refLister.setPath(inputDirectory.getPath());
+      for (String extension : extensions.split(",")) {
+        refLister.addExtension(extension);
+      }
+
+      lister = refLister;
+      features = Arrays.asList("haralickContrast", "sobelRMS", "sizeConvexHull", "mean", "aspectRatio");
     }
 
     Loader<UnsignedShortType> loader = new BioFormatsLoader(log);
@@ -109,8 +158,8 @@ public class FeatureApp implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    List<String> features = Arrays.asList("tamuraContrast", "sobelRMS", "convexHullSize", "mean", "aspectRatio");
     FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, features);
+
     Thread producer = new Thread(() -> {
       int rejected = 0;
       while(loader.hasNext()) {
@@ -181,9 +230,10 @@ public class FeatureApp implements Command {
     options.addOption("h", "help", false, "Print usage.");
     options.addOption("ex", "executorPoolSize", true, FeatureApp.POOLSIZE_DESC);
     options.addOption("fs", "featureSet", true, FeatureApp.FEATURESET_DESC);
+    options.addOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
+    options.addOption("y", "yamlConfig", true, FeatureApp.YAMLCONFIG_DESC);
     options.addRequiredOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
     options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
-    options.addRequiredOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
 
     HelpFormatter formatter = new HelpFormatter();
 
@@ -198,16 +248,10 @@ public class FeatureApp implements Command {
       }
 
       final Map<String, Object> inputArgs = new HashMap<>();
-      inputArgs.put("imageLimit", -1);
-      inputArgs.put("fileLimit", -1);
-      inputArgs.put("outputFilename", "output.csv");
-      inputArgs.put("outputDirectory", new File("."));
-      inputArgs.put("executorPoolSize", Runtime.getRuntime().availableProcessors());
-      inputArgs.put("featureSet", "small");
 
       for (Option option : cmd.getOptions()) {
         String longOpt = option.getLongOpt();
-        if (longOpt.matches("^.+Directory$")) {
+        if (longOpt.matches("^.+Directory$") | longOpt.matches("yamlConfig")) {
           inputArgs.put(longOpt, new File(option.getValue()));
         } else {
           inputArgs.put(longOpt, option.getValue());

@@ -13,7 +13,7 @@ import java.util.List;
  * 
  * @author jgp
  */
-public class RecursiveExtensionFilteredLister implements Serializable {
+public class RecursiveExtensionFilteredLister implements FileLister {
   @SuppressWarnings("unused")
   private static final long serialVersionUID = -5751014237854623589L;
 
@@ -88,6 +88,7 @@ public class RecursiveExtensionFilteredLister implements Serializable {
    * 
    * @return a list of files
    */
+  @Override
   public List<File> getFiles() {
     if (this.hasChanged == true) {
       dir();

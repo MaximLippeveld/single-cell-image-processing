@@ -131,7 +131,8 @@ public class FeatureVectorFactory<T extends RealType<T>> {
             });
 
         int size = polygonFeatureFunctions.size() + iterableFeatureFunctions.size() + iterableIntervalFeatureFunctions.size() + raiFeatureFunctions.size();
-        assert size == featuresToCompute.size(): "Not all features in the list were recognized.";
+        if(size == featuresToCompute.size())
+            throw new AssertionError("Not all features in the list were recognized.");
     }
 
     public static class FeatureVector {

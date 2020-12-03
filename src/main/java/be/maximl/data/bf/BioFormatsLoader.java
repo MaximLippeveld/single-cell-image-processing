@@ -1,5 +1,6 @@
 package be.maximl.data.bf;
 
+import be.maximl.data.FileLister;
 import be.maximl.data.Image;
 import be.maximl.data.Loader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
@@ -52,7 +53,7 @@ public class BioFormatsLoader implements Loader<UnsignedShortType> {
     maskIndex = index+1;
 
     image = new BioFormatsImage(imgIndex/2);
-    image.setDirectory(reader.getMetadata().getSourceLocation().getName());
+    image.setDirectory(reader.getMetadata().getSourceLocation().getURI().getPath());
     image.setFilename(reader.getMetadata().getSourceLocation().getName());
     image.setExtension(reader.getFormatName());
     image.setChannels(channels);
@@ -100,7 +101,7 @@ public class BioFormatsLoader implements Loader<UnsignedShortType> {
 
   @Override
   public void setLister(
-          RecursiveExtensionFilteredLister lister) throws IOException, FormatException {
+          FileLister lister) throws IOException, FormatException {
     this.lister = lister.getFiles().iterator();
     currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
     currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;

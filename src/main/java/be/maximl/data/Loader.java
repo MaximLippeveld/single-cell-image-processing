@@ -14,6 +14,5 @@ public interface Loader<T extends RealType<T>> extends Iterator<Image<T>> {
 
     void setImageLimit(int imageLimit);
 
-    void setLister (
-            RecursiveExtensionFilteredLister lister) throws IOException, FormatException;
+    void setLister (FileLister lister) throws IOException, FormatException;
 }
