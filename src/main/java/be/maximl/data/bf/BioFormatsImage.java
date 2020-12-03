@@ -4,7 +4,9 @@ import be.maximl.data.Image;
 import net.imglib2.Localizable;
 import net.imglib2.RandomAccess;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImg;
+import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.BooleanArray;
 import net.imglib2.img.basictypeaccess.array.ShortArray;
@@ -86,6 +88,11 @@ public class BioFormatsImage implements Image<UnsignedShortType> {
   @Override
   public ArrayImg<NativeBoolType, BooleanArray> getMaskImg() {
     return maskImg;
+  }
+
+  @Override
+  public ImgFactory<UnsignedShortType> getFactory() {
+    return new ArrayImgFactory<>(new UnsignedShortType());
   }
 
   @Override

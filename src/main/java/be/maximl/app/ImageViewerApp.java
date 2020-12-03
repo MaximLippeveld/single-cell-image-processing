@@ -7,17 +7,19 @@ import be.maximl.data.RecursiveExtensionFilteredLister;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.display.ImageDisplay;
+import net.imagej.ops.Ops;
 import net.imagej.overlay.*;
 import net.imagej.roi.DefaultROIService;
 import net.imagej.roi.ROIService;
-import net.imglib2.Cursor;
-import net.imglib2.IterableInterval;
-import net.imglib2.RealLocalizable;
+import net.imglib2.*;
+import net.imglib2.img.Img;
+import net.imglib2.img.ImgView;
 import net.imglib2.roi.EllipseRegionOfInterest;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 import org.scijava.ui.UIService;
 import org.scijava.util.ColorRGB;
@@ -64,17 +66,37 @@ public class ImageViewerApp {
         Image<UnsignedShortType> img = relation.next();
 
         IterableInterval<UnsignedShortType> it = Regions.sample(img.getMask(0), Views.hyperSlice(img.getImg(), 2, 0));
+        Img<UnsignedShortType> it2img = ij.op().create().img(it);
+        RandomAccess<UnsignedShortType> racc = it2img.randomAccess();
 
         int counter = 0;
+        int sum = 0;
         Cursor<UnsignedShortType> cursor = it.localizingCursor();
         while (cursor.hasNext()) {
             cursor.fwd();
             UnsignedShortType t = cursor.get();
             if(t.get() > 0) {
                 counter++;
+                sum += t.get();
+                racc.setPosition(cursor);
+                racc.get().set(t.get());
             }
         }
-        ij.log().info("COUNT " + counter);
+        ij.log().info("COUNT " + counter + " SUM " + sum);
+        cursor = it2img.cursor();
+        counter = 0;
+        sum = 0;
+        while (cursor.hasNext()) {
+            cursor.fwd();
+            UnsignedShortType t = cursor.get();
+            if(t.get() > 0) {
+                counter++;
+                sum += t.get();
+            }
+        }
+        ij.log().info("COUNT " + counter + " SUM " + sum);
+
+        ij.ui().show(it2img);
 
         ImageDisplay id = (ImageDisplay) ij.display().createDisplay(img.getImg());
 
@@ -102,6 +124,17 @@ public class ImageViewerApp {
 
         ij.overlay().addOverlays(id, overlays);
 
+        RandomAccessibleInterval<UnsignedShortType> sobel = ij.op().filter().sobel(it2img);
+        ij.ui().show(sobel);
+
+        sum = 0;
+        for ( UnsignedShortType t : ImgView.wrap(sobel)) {
+            sum += t.getRealDouble();
+        }
+        ij.log().info(sum);
+
+        ij.ui().show(Masks.toRandomAccessibleInterval(img.getMask(0)));
+        ij.ui().show(ij.op().create().img(it));
         ij.ui().show(id);
 
     }

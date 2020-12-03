@@ -2,16 +2,25 @@ package be.maximl.feature;
 
 import be.maximl.data.Image;
 import net.imagej.ops.OpService;
+import net.imagej.ops.Ops;
 import net.imagej.ops.features.haralick.HaralickNamespace;
+import net.imagej.ops.features.tamura2d.TamuraNamespace;
 import net.imagej.ops.features.zernike.ZernikeNamespace;
 import net.imagej.ops.image.cooccurrenceMatrix.MatrixOrientation2D;
-import net.imglib2.IterableInterval;
-import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.*;
+import net.imglib2.RandomAccess;
+import net.imglib2.img.Img;
+import net.imglib2.img.ImgFactory;
+import net.imglib2.img.ImgView;
 import net.imglib2.roi.MaskInterval;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.numeric.RealType;
+import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.type.numeric.real.DoubleType;
+import net.imglib2.util.Intervals;
+import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
 import java.util.*;
@@ -25,20 +34,16 @@ public class FeatureVectorFactory<T extends RealType<T>> {
     final private Map<String, Function<Iterable<T>, Double>> iterableFeatureFunctions = new HashMap<>();
     final private Map<String, Function<IterableInterval<T>, Double>> iterableIntervalFeatureFunctions = new HashMap<>();
     final private Map<String, Function<Polygon2D, Double>> polygonFeatureFunctions = new HashMap<>();
+    final private Map<String, Function<RandomAccessibleInterval<T>, Double>> raiFeatureFunctions = new HashMap<>();
 
-    final public static Map<String, List<String>> FEATURE_SETS = new HashMap<String, List<String>>();
-    static {
-        FEATURE_SETS.put("small", Arrays.asList("stdDev", "median", "min", "max", "size", "eccentricity"));
-        FEATURE_SETS.put("geom", Collections.emptyList());
-        FEATURE_SETS.put("intensity", Collections.emptyList());
-    }
+    final public static List<String> FEATURESET_SMALL = Arrays.asList("stdDev", "median", "min", "max", "size", "eccentricity");
 
-    public FeatureVectorFactory(OpService opService, String featureSet) {
+    public FeatureVectorFactory(OpService opService, List<String> featuresToCompute) {
         this.opService = opService;
 
-        List<String> featuresToCompute = FEATURE_SETS.get(featureSet);
-
         // intensity features
+        if (featuresToCompute.contains("mean"))
+            iterableFeatureFunctions.put("mean", s -> opService.stats().mean(s).getRealDouble());
         if (featuresToCompute.contains("geometricMean"))
             iterableFeatureFunctions.put("geometricMean", s -> opService.stats().geometricMean(s).getRealDouble());
         if(featuresToCompute.contains("harmonicMean"))
@@ -60,17 +65,26 @@ public class FeatureVectorFactory<T extends RealType<T>> {
         if(featuresToCompute.contains("moment3AboutMean"))
             iterableFeatureFunctions.put("moment3AboutMean", s -> opService.stats().moment3AboutMean(s).getRealDouble());
 
-        if(featuresToCompute.contains("haralick")) {
-            HaralickNamespace haralick = opService.haralick();
+        // texture
+        HaralickNamespace haralick = opService.haralick();
+        if(featuresToCompute.contains("haralickContrast")) {
             for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 iterableIntervalFeatureFunctions.put(
                         "haralickContrast" + orientation,
                         s -> haralick.contrast(s, 50, 5, orientation).getRealDouble()
                 );
+            }
+        }
+        if(featuresToCompute.contains("haralickCorrelation")) {
+            for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 iterableIntervalFeatureFunctions.put(
                         "haralickCorrelation" + orientation,
                         s -> haralick.correlation(s, 50, 5, orientation).getRealDouble()
                 );
+            }
+        }
+        if(featuresToCompute.contains("haralickEntropy")) {
+            for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 iterableIntervalFeatureFunctions.put(
                         "haralickEntropy" + orientation,
                         s -> haralick.entropy(s, 50, 5, orientation).getRealDouble()
@@ -78,10 +92,29 @@ public class FeatureVectorFactory<T extends RealType<T>> {
             }
         }
 
+        TamuraNamespace tamura = opService.tamura();
+        if (featuresToCompute.contains("tamuraContrast")) {
+            raiFeatureFunctions.put("tamuraContrast", s -> tamura.contrast(s).getRealDouble());
+        }
+
         if (featuresToCompute.contains("zernike")) {
             ZernikeNamespace zernike = opService.zernike();
             iterableIntervalFeatureFunctions.put("zernikeMagnitude", s -> zernike.magnitude(s, 3, 1).getRealDouble());
             iterableIntervalFeatureFunctions.put("zernikePhase", s -> zernike.phase(s, 3, 1).getRealDouble());
+        }
+
+        if (featuresToCompute.contains("sobelRMS")) {
+            Function<RandomAccessibleInterval<T>, Double> func = s -> {
+                RandomAccessibleInterval<T> sobel = opService.filter().sobel(s);
+                double res = .0;
+                int count = 0;
+                for (T t : ImgView.wrap(sobel)) {
+                    res += Math.pow(t.getRealDouble(), 2);
+                    count++;
+                }
+                return Math.sqrt(res/count);
+            };
+            raiFeatureFunctions.put("sobelRMS", func);
         }
 
         // geometry features
@@ -95,6 +128,14 @@ public class FeatureVectorFactory<T extends RealType<T>> {
             polygonFeatureFunctions.put("convexity", s -> opService.geom().convexity(s).getRealDouble());
         if(featuresToCompute.contains("size"))
             polygonFeatureFunctions.put("size", s -> opService.geom().size(s).getRealDouble());
+        if(featuresToCompute.contains("sizeConvexHull"))
+            polygonFeatureFunctions.put("sizeConvexHull", s -> opService.geom().sizeConvexHull(s).getRealDouble());
+        if(featuresToCompute.contains("aspectRatio"))
+            polygonFeatureFunctions.put("aspectRatio", s -> {
+                double minor = opService.geom().minorAxis(s).getRealDouble();
+                double major = opService.geom().majorAxis(s).getRealDouble();
+                return minor/major;
+            });
     }
 
     public static class FeatureVector {
@@ -146,27 +187,44 @@ public class FeatureVectorFactory<T extends RealType<T>> {
         vec.add("id", img.getId());
 
         RandomAccessibleInterval<T> libImg = img.getImg();
+        ImgFactory<T> factory = img.getFactory();
 
-        IterableInterval<T> slice;
+        IterableInterval<T> maskedSlice;
+        MaskInterval sliceMask;
         Integer channel;
+        boolean compute;
         for (int i = 0; i<img.getChannels().size(); i++) {
 
             // create an iterator that only samples points within the mask
-            MaskInterval mask = img.getMask(i);
-            boolean compute = Regions.countTrue(Masks.toRandomAccessibleInterval(mask)) > 0;
-            slice = Regions.sample(img.getMask(i), Views.hyperSlice(libImg, 2, i));
+            sliceMask = img.getMask(i);
+            maskedSlice = Regions.sample(img.getMask(i), Views.hyperSlice(libImg, 2, i));
+
+            compute = Regions.countTrue(Masks.toRandomAccessibleInterval(sliceMask)) > 0;
             channel = img.getChannels().get(i);
 
             for(Map.Entry<String, Function<Iterable<T>, Double>> entry : iterableFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), slice, compute);
+                vec.computeFeature(entry.getKey(), channel, entry.getValue(), maskedSlice, compute);
             }
             for(Map.Entry<String, Function<IterableInterval<T>, Double>> entry : iterableIntervalFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), slice, compute);
+                vec.computeFeature(entry.getKey(), channel, entry.getValue(), maskedSlice, compute);
             }
 
-            Polygon2D polygon = opService.geom().contour(Masks.toRandomAccessibleInterval(mask), false);
+            Polygon2D polygon = opService.geom().contour(Masks.toRandomAccessibleInterval(sliceMask), false);
             for(Map.Entry<String, Function<Polygon2D, Double>> entry : polygonFeatureFunctions.entrySet()) {
                 vec.computeFeature(entry.getKey(), channel, entry.getValue(), polygon, compute);
+            }
+
+            RandomAccessibleInterval<T> rai = factory.create(maskedSlice.dimensionsAsLongArray());
+            Cursor<T> cursor = maskedSlice.localizingCursor();
+            while(cursor.hasNext()) {
+                cursor.fwd();
+                if(cursor.get().getRealDouble() > 0) {
+                    rai.randomAccess().setPosition(cursor);
+                    rai.randomAccess().get().set(cursor.get());
+                }
+            }
+            for(Map.Entry<String, Function<RandomAccessibleInterval<T>, Double>> entry : raiFeatureFunctions.entrySet()) {
+                vec.computeFeature(entry.getKey(), channel, entry.getValue(), rai, compute);
             }
         }
 

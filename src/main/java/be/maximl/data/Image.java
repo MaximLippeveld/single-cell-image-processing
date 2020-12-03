@@ -1,6 +1,7 @@
 package be.maximl.data;
 
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.basictypeaccess.array.BooleanArray;
 import net.imglib2.roi.MaskInterval;
@@ -27,6 +28,8 @@ public interface Image<T extends RealType<T>> extends Serializable {
     RandomAccessibleInterval<T> getImg();
 
     ArrayImg<NativeBoolType, BooleanArray> getMaskImg();
+
+    ImgFactory<T> getFactory();
 
     MaskInterval getMask(int pos);
 

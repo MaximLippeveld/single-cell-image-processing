@@ -23,10 +23,7 @@ import org.scijava.plugin.Plugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -112,7 +109,8 @@ public class FeatureApp implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, featureSet);
+    List<String> features = Arrays.asList("tamuraContrast", "sobelRMS");
+    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, features);
     Thread producer = new Thread(() -> {
       int rejected = 0;
       while(loader.hasNext()) {
