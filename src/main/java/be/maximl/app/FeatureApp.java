@@ -109,7 +109,7 @@ public class FeatureApp implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    List<String> features = Arrays.asList("tamuraContrast", "sobelRMS");
+    List<String> features = Arrays.asList("tamuraContrast", "sobelRMS", "convexHullSize", "mean", "aspectRatio");
     FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, features);
     Thread producer = new Thread(() -> {
       int rejected = 0;
@@ -180,7 +180,7 @@ public class FeatureApp implements Command {
     options.addOption("fl", "fileLimit", true, FeatureApp.FILELIMIT_DESC);
     options.addOption("h", "help", false, "Print usage.");
     options.addOption("ex", "executorPoolSize", true, FeatureApp.POOLSIZE_DESC);
-    options.addOption("f", "featureSet", true, FeatureApp.FEATURESET_DESC);
+    options.addOption("fs", "featureSet", true, FeatureApp.FEATURESET_DESC);
     options.addRequiredOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
     options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
     options.addRequiredOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);

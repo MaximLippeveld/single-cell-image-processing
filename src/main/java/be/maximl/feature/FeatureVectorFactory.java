@@ -2,14 +2,11 @@ package be.maximl.feature;
 
 import be.maximl.data.Image;
 import net.imagej.ops.OpService;
-import net.imagej.ops.Ops;
 import net.imagej.ops.features.haralick.HaralickNamespace;
 import net.imagej.ops.features.tamura2d.TamuraNamespace;
 import net.imagej.ops.features.zernike.ZernikeNamespace;
 import net.imagej.ops.image.cooccurrenceMatrix.MatrixOrientation2D;
 import net.imglib2.*;
-import net.imglib2.RandomAccess;
-import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.ImgView;
 import net.imglib2.roi.MaskInterval;
@@ -17,10 +14,6 @@ import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.numeric.RealType;
-import net.imglib2.type.numeric.integer.UnsignedShortType;
-import net.imglib2.type.numeric.real.DoubleType;
-import net.imglib2.util.Intervals;
-import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 
 import java.util.*;
@@ -136,6 +129,9 @@ public class FeatureVectorFactory<T extends RealType<T>> {
                 double major = opService.geom().majorAxis(s).getRealDouble();
                 return minor/major;
             });
+
+        int size = polygonFeatureFunctions.size() + iterableFeatureFunctions.size() + iterableIntervalFeatureFunctions.size() + raiFeatureFunctions.size();
+        assert size == featuresToCompute.size(): "Not all features in the list were recognized.";
     }
 
     public static class FeatureVector {
