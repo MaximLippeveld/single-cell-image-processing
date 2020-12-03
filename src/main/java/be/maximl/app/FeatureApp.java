@@ -80,8 +80,8 @@ public class FeatureApp implements Command {
   @Parameter(label="Channels", description=FeatureApp.CHANNELS_DESC)
   private String channels;
 
-  @Parameter(label="Input directory", description = FeatureApp.INPUTDIR_DESC)
-  private File inputDirectory;
+  @Parameter(label="Input directory", description = FeatureApp.INPUTDIR_DESC, required = false)
+  private File inputDirectory = null;
 
   @Parameter(label="Extensions", description = FeatureApp.EXTENSIONS_DESC, required = false)
   private String extensions = null;
@@ -232,7 +232,7 @@ public class FeatureApp implements Command {
     options.addOption("fs", "featureSet", true, FeatureApp.FEATURESET_DESC);
     options.addOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
     options.addOption("y", "yamlConfig", true, FeatureApp.YAMLCONFIG_DESC);
-    options.addRequiredOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
+    options.addOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
     options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
 
     HelpFormatter formatter = new HelpFormatter();
@@ -264,6 +264,7 @@ public class FeatureApp implements Command {
       ij.module().waitFor(command);
       ij.getContext().dispose();
     } catch (MissingOptionException e) {
+      e.printStackTrace();
       formatter.printHelp( "SCI Feature extraction tool", options);
     }
   }
