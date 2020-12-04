@@ -1,8 +1,7 @@
 package be.maximl.data.bf;
 
 import be.maximl.data.Image;
-import net.imglib2.Localizable;
-import net.imglib2.RandomAccess;
+import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImg;
@@ -10,16 +9,13 @@ import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.img.array.ArrayImgs;
 import net.imglib2.img.basictypeaccess.array.BooleanArray;
 import net.imglib2.img.basictypeaccess.array.ShortArray;
-import net.imglib2.roi.BoundaryType;
-import net.imglib2.roi.KnownConstant;
 import net.imglib2.roi.MaskInterval;
-import net.imglib2.roi.mask.integer.DefaultMaskInterval;
+import net.imglib2.roi.Masks;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 
 import java.util.List;
-import java.util.function.Predicate;
 
 /**
  * A good old JavaBean containing the EXIF properties as well as the
@@ -27,7 +23,7 @@ import java.util.function.Predicate;
  * 
  * @author jgp
  */
-public class BioFormatsImage implements Image<UnsignedShortType> {
+public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType> {
   private static final long serialVersionUID = -2589804417011601051L;
 
   final private static int CHANNELDIM = 2;
@@ -85,8 +81,7 @@ public class BioFormatsImage implements Image<UnsignedShortType> {
     return img;
   }
 
-  @Override
-  public ArrayImg<NativeBoolType, BooleanArray> getMaskImg() {
+  private ArrayImg<NativeBoolType, BooleanArray> getMaskImg() {
     return maskImg;
   }
 
@@ -96,13 +91,13 @@ public class BioFormatsImage implements Image<UnsignedShortType> {
   }
 
   @Override
-  public MaskInterval getMask(int pos) {
-    RandomAccess<NativeBoolType> mask = Views.hyperSlice(getMaskImg(), CHANNELDIM, pos).randomAccess();
-    Predicate<Localizable> maskPredicate = loc -> {
-      mask.setPosition(loc);
-      return mask.get().get();
-    };
-    return new DefaultMaskInterval(Views.hyperSlice(getImg(), CHANNELDIM, pos), BoundaryType.CLOSED, maskPredicate, KnownConstant.UNKNOWN);
+  public MaskInterval getMaskInterval(int pos) {
+    return Masks.toMaskInterval(Views.hyperSlice(getMaskImg(), 2, 0));
+  }
+
+  @Override
+  public IterableInterval<NativeBoolType> getMaskAsIterableInterval(int pos) {
+    return Views.hyperSlice(getMaskImg(), 2, pos);
   }
 
   /**

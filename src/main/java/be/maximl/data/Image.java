@@ -1,5 +1,6 @@
 package be.maximl.data;
 
+import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImg;
@@ -13,7 +14,7 @@ import net.imglib2.type.numeric.integer.UnsignedShortType;
 import java.io.Serializable;
 import java.util.List;
 
-public interface Image<T extends RealType<T>> extends Serializable {
+public interface Image<T extends RealType<T>, S extends NativeType<S>> extends Serializable {
 
     int getId();
 
@@ -27,11 +28,11 @@ public interface Image<T extends RealType<T>> extends Serializable {
 
     RandomAccessibleInterval<T> getImg();
 
-    ArrayImg<NativeBoolType, BooleanArray> getMaskImg();
-
     ImgFactory<T> getFactory();
 
-    MaskInterval getMask(int pos);
+    MaskInterval getMaskInterval(int pos);
+
+    IterableInterval<S> getMaskAsIterableInterval(int pos);
 
     String getDirectory();
 

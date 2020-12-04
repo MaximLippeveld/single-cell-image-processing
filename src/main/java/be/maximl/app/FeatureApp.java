@@ -16,6 +16,7 @@ import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
@@ -77,34 +78,34 @@ public class FeatureApp implements Command {
   @Parameter
   private LogService log;
 
-  @Parameter(label="Channels", description=FeatureApp.CHANNELS_DESC)
+  @Parameter(label="Channels", description=FeatureApp.CHANNELS_DESC, persist = false)
   private String channels;
 
-  @Parameter(label="Input directory", description = FeatureApp.INPUTDIR_DESC, required = false)
+  @Parameter(label="Input directory", description = FeatureApp.INPUTDIR_DESC, required = false, persist = false)
   private File inputDirectory = null;
 
-  @Parameter(label="Extensions", description = FeatureApp.EXTENSIONS_DESC, required = false)
+  @Parameter(label="Extensions", description = FeatureApp.EXTENSIONS_DESC, required = false, persist = false)
   private String extensions = null;
 
-  @Parameter(label="Image limit", description = FeatureApp.IMAGELIMIT_DESC, required = false)
+  @Parameter(label="Image limit", description = FeatureApp.IMAGELIMIT_DESC, required = false, persist = false)
   private int imageLimit = -1;
 
-  @Parameter(label="File limit", description = FeatureApp.FILELIMIT_DESC, required = false)
+  @Parameter(label="File limit", description = FeatureApp.FILELIMIT_DESC, required = false, persist = false)
   private int fileLimit = -1;
 
-  @Parameter(label="Output directory", description = FeatureApp.OUTPUTDIR_DESC, required = false)
+  @Parameter(label="Output directory", description = FeatureApp.OUTPUTDIR_DESC, required = false, persist = false)
   private File outputDirectory = new File(".");
 
-  @Parameter(label="Output filename", description = FeatureApp.OUTPUTFILENAME_DESC, required = false)
+  @Parameter(label="Output filename", description = FeatureApp.OUTPUTFILENAME_DESC, required = false, persist = false)
   private String outputFilename = "output.csv";
 
-  @Parameter(label="Executor pool size", description = FeatureApp.POOLSIZE_DESC, required = false)
+  @Parameter(label="Executor pool size", description = FeatureApp.POOLSIZE_DESC, required = false, persist = false)
   private int executorPoolSize= Runtime.getRuntime().availableProcessors();
 
-  @Parameter(label="Feature set", description = FeatureApp.FEATURESET_DESC, required = false)
+  @Parameter(label="Feature set", description = FeatureApp.FEATURESET_DESC, required = false, persist = false)
   private String featureSet = null;
 
-  @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false)
+  @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false, persist = false)
   private File yamlConfig = null;
 
   @Override
@@ -133,10 +134,10 @@ public class FeatureApp implements Command {
       }
 
       lister = refLister;
-      features = Arrays.asList("haralickContrast", "sobelRMS", "sizeConvexHull", "mean", "aspectRatio");
+      features = Arrays.asList("size", "sizeConvexHull", "sizeMask");
     }
 
-    Loader<UnsignedShortType> loader = new BioFormatsLoader(log);
+    Loader<UnsignedShortType, NativeBoolType> loader = new BioFormatsLoader(log);
     for (String channel : channels.split(",")) {
       loader.addChannel(Integer.parseInt(channel));
     }
@@ -158,12 +159,12 @@ public class FeatureApp implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, features);
+    FeatureVectorFactory<UnsignedShortType, NativeBoolType> factory = new FeatureVectorFactory<>(opService, features);
 
     Thread producer = new Thread(() -> {
       int rejected = 0;
       while(loader.hasNext()) {
-        Image<UnsignedShortType> image = loader.next();
+        Image<UnsignedShortType, NativeBoolType> image = loader.next();
         try {
           completionService.submit(() -> factory.computeVector(image));
           counter.incrementAndGet();

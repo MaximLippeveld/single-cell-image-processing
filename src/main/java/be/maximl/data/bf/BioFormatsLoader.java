@@ -8,7 +8,9 @@ import io.scif.FormatException;
 import io.scif.Plane;
 import io.scif.Reader;
 import io.scif.SCIFIO;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
+import org.apache.commons.lang.ArrayUtils;
 import org.scijava.io.location.FileLocation;
 import org.scijava.log.LogService;
 
@@ -17,10 +19,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 
 
-public class BioFormatsLoader implements Loader<UnsignedShortType> {
+public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolType> {
   private static final long serialVersionUID = 4598175080399877334L;
   private final LogService log;
   private Iterator<File> lister;
@@ -37,7 +41,7 @@ public class BioFormatsLoader implements Loader<UnsignedShortType> {
   }
 
   @Override
-  public Image<UnsignedShortType> imageFromReader(Reader reader, int index) throws IOException, FormatException {
+  public Image<UnsignedShortType, NativeBoolType> imageFromReader(Reader reader, int index) throws IOException, FormatException {
 
     int imgIndex;
     int maskIndex;
@@ -47,7 +51,8 @@ public class BioFormatsLoader implements Loader<UnsignedShortType> {
     short[] flatData;
     boolean[] maskData;
     short[] planeTmp;
-    Image<UnsignedShortType> image;
+    byte[] maskTmp;
+    Image<UnsignedShortType, NativeBoolType> image;
 
     imgIndex = index;
     maskIndex = index+1;
@@ -71,7 +76,7 @@ public class BioFormatsLoader implements Loader<UnsignedShortType> {
     for (int j = 0; j<channels.size(); j++) {
 
       maskPlane = reader.openPlane(maskIndex, channels.get(j));
-      for (int k = 0; k<maskPlane.getBytes().length/2; k++) {
+      for (int k = 0; k<pointsInPlane; k++) {
         maskData[k+j*pointsInPlane] = maskPlane.getBytes()[k] > 0;
       }
 
@@ -100,6 +105,11 @@ public class BioFormatsLoader implements Loader<UnsignedShortType> {
   }
 
   @Override
+  public void setStartIndex(int index) {
+    this.currentIndex = index*2;
+  }
+
+  @Override
   public void setLister(
           FileLister lister) throws IOException, FormatException {
     this.lister = lister.getFiles().iterator();
@@ -113,10 +123,10 @@ public class BioFormatsLoader implements Loader<UnsignedShortType> {
   }
 
   @Override
-  public Image<UnsignedShortType> next() {
+  public Image<UnsignedShortType, NativeBoolType> next() {
 
     try {
-      Image<UnsignedShortType> image = imageFromReader(currentReader, currentIndex);
+      Image<UnsignedShortType, NativeBoolType> image = imageFromReader(currentReader, currentIndex);
 
       currentIndex += 2;
 
