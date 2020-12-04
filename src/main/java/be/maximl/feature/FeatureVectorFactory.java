@@ -116,7 +116,7 @@ public class FeatureVectorFactory<T extends RealType<T>> {
             polygonFeatureFunctions.put("eccentricity", s -> opService.geom().eccentricity(s).getRealDouble());
         if(featuresToCompute.contains("circularity"))
             polygonFeatureFunctions.put("circularity", s -> opService.geom().circularity(s).getRealDouble());
-        if(featuresToCompute.contains("roundness"))
+        if(featuresToCompute.contains("roundness")) // roundess = aspectRatio
             polygonFeatureFunctions.put("roundness", s -> opService.geom().roundness(s).getRealDouble());
         if(featuresToCompute.contains("convexity"))
             polygonFeatureFunctions.put("convexity", s -> opService.geom().convexity(s).getRealDouble());
@@ -124,12 +124,6 @@ public class FeatureVectorFactory<T extends RealType<T>> {
             polygonFeatureFunctions.put("size", s -> opService.geom().size(s).getRealDouble());
         if(featuresToCompute.contains("sizeConvexHull"))
             polygonFeatureFunctions.put("sizeConvexHull", s -> opService.geom().sizeConvexHull(s).getRealDouble());
-        if(featuresToCompute.contains("aspectRatio"))
-            polygonFeatureFunctions.put("aspectRatio", s -> {
-                double minor = opService.geom().minorAxis(s).getRealDouble();
-                double major = opService.geom().majorAxis(s).getRealDouble();
-                return minor/major;
-            });
 
         int size = polygonFeatureFunctions.size() + iterableFeatureFunctions.size() + iterableIntervalFeatureFunctions.size() + raiFeatureFunctions.size();
         if(size == featuresToCompute.size())
