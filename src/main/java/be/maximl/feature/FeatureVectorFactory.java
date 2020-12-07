@@ -17,6 +17,7 @@ import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.view.Views;
+import org.scijava.log.LogService;
 
 import java.util.*;
 import java.util.function.Function;
@@ -26,6 +27,7 @@ import static java.lang.Double.NaN;
 public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>> {
 
     final private OpService opService;
+    final private LogService logService;
     final private Map<String, Function<Iterable<T>, Double>> iFeatureFunctions = new HashMap<>();
     final private Map<String, Function<IterableInterval<T>, Double>> iiFeatureFunctions = new HashMap<>();
     final private Map<String, Function<IterableInterval<S>, Double>> iiMaskFeatureFunctions = new HashMap<>();
@@ -34,36 +36,37 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
 
     final public static List<String> FEATURESET_SMALL = Arrays.asList("stdDev", "median", "min", "max", "size", "eccentricity");
 
-    public FeatureVectorFactory(OpService opService, List<String> featuresToCompute) {
+    public FeatureVectorFactory(OpService opService, LogService logService, List<String> featuresToCompute, boolean all) {
         this.opService = opService;
+        this.logService = logService;
 
         // intensity features
-        if (featuresToCompute.contains("mean"))
+        if (featuresToCompute.contains("mean") | all)
             iFeatureFunctions.put("mean", s -> opService.stats().mean(s).getRealDouble());
-        if (featuresToCompute.contains("geometricMean"))
+        if (featuresToCompute.contains("geometricMean") | all)
             iFeatureFunctions.put("geometricMean", s -> opService.stats().geometricMean(s).getRealDouble());
-        if(featuresToCompute.contains("harmonicMean"))
+        if (featuresToCompute.contains("harmonicMean") | all)
             iFeatureFunctions.put("harmonicMean", s -> opService.stats().harmonicMean(s).getRealDouble());
-        if(featuresToCompute.contains("stdDev"))
+        if (featuresToCompute.contains("stdDev") | all)
             iFeatureFunctions.put("stdDev", s -> opService.stats().stdDev(s).getRealDouble());
-        if(featuresToCompute.contains("median"))
+        if (featuresToCompute.contains("median") | all)
             iFeatureFunctions.put("median", s -> opService.stats().median(s).getRealDouble());
-        if(featuresToCompute.contains("sum"))
+        if (featuresToCompute.contains("sum") | all)
             iFeatureFunctions.put("sum", s -> opService.stats().sum(s).getRealDouble());
-        if(featuresToCompute.contains("min"))
+        if (featuresToCompute.contains("min") | all)
             iFeatureFunctions.put("min", s -> opService.stats().min(s).getRealDouble());
-        if(featuresToCompute.contains("max"))
+        if (featuresToCompute.contains("max") | all)
             iFeatureFunctions.put("max", s -> opService.stats().max(s).getRealDouble());
-        if(featuresToCompute.contains("kurtosis"))
+        if (featuresToCompute.contains("kurtosis") | all)
             iFeatureFunctions.put("kurtosis", s -> opService.stats().kurtosis(s).getRealDouble());
-        if(featuresToCompute.contains("skewness"))
+        if (featuresToCompute.contains("skewness") | all)
             iFeatureFunctions.put("skewness", s -> opService.stats().skewness(s).getRealDouble());
-        if(featuresToCompute.contains("moment3AboutMean"))
+        if (featuresToCompute.contains("moment3AboutMean") | all)
             iFeatureFunctions.put("moment3AboutMean", s -> opService.stats().moment3AboutMean(s).getRealDouble());
 
         // texture
         HaralickNamespace haralick = opService.haralick();
-        if(featuresToCompute.contains("haralickContrast")) {
+        if (featuresToCompute.contains("haralickContrast") | all) {
             for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 iiFeatureFunctions.put(
                         "haralickContrast" + orientation,
@@ -71,7 +74,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
                 );
             }
         }
-        if(featuresToCompute.contains("haralickCorrelation")) {
+        if (featuresToCompute.contains("haralickCorrelation") | all) {
             for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 iiFeatureFunctions.put(
                         "haralickCorrelation" + orientation,
@@ -79,7 +82,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
                 );
             }
         }
-        if(featuresToCompute.contains("haralickEntropy")) {
+        if (featuresToCompute.contains("haralickEntropy") | all) {
             for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
                 iiFeatureFunctions.put(
                         "haralickEntropy" + orientation,
@@ -89,17 +92,17 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
         }
 
         TamuraNamespace tamura = opService.tamura();
-        if (featuresToCompute.contains("tamuraContrast")) {
+        if (featuresToCompute.contains("tamuraContrast") | all) {
             raiFeatureFunctions.put("tamuraContrast", s -> tamura.contrast(s).getRealDouble());
         }
 
-        if (featuresToCompute.contains("zernike")) {
+        if (featuresToCompute.contains("zernike") | all) {
             ZernikeNamespace zernike = opService.zernike();
             iiFeatureFunctions.put("zernikeMagnitude", s -> zernike.magnitude(s, 3, 1).getRealDouble());
             iiFeatureFunctions.put("zernikePhase", s -> zernike.phase(s, 3, 1).getRealDouble());
         }
 
-        if (featuresToCompute.contains("sobelRMS")) {
+        if (featuresToCompute.contains("sobelRMS") | all) {
             Function<RandomAccessibleInterval<T>, Double> func = s -> {
                 RandomAccessibleInterval<T> sobel = opService.filter().sobel(s);
                 double res = .0;
@@ -114,20 +117,20 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
         }
 
         // geometry features
-        if(featuresToCompute.contains("eccentricity"))
+        if (featuresToCompute.contains("eccentricity") | all)
             pFeatureFunctions.put("eccentricity", s -> opService.geom().eccentricity(s).getRealDouble());
-        if(featuresToCompute.contains("circularity"))
+        if (featuresToCompute.contains("circularity") | all)
             pFeatureFunctions.put("circularity", s -> opService.geom().circularity(s).getRealDouble());
-        if(featuresToCompute.contains("roundness")) // roundess = aspectRatio
+        if (featuresToCompute.contains("roundness") | all) // roundess = aspectRatio
             pFeatureFunctions.put("roundness", s -> opService.geom().roundness(s).getRealDouble());
-        if(featuresToCompute.contains("convexity"))
+        if (featuresToCompute.contains("convexity") | all)
             pFeatureFunctions.put("convexity", s -> opService.geom().convexity(s).getRealDouble());
-        if(featuresToCompute.contains("size"))
+        if (featuresToCompute.contains("size") | all)
             pFeatureFunctions.put("size", s -> opService.geom().size(s).getRealDouble());
-        if(featuresToCompute.contains("sizeConvexHull"))
+        if (featuresToCompute.contains("sizeConvexHull") | all)
             pFeatureFunctions.put("sizeConvexHull", s -> opService.geom().sizeConvexHull(s).getRealDouble());
 
-        if(featuresToCompute.contains("sizeMask"))
+        if (featuresToCompute.contains("sizeMask") | all)
             iiMaskFeatureFunctions.put("sizeMask", s -> opService.geom().size(s).getRealDouble());
 
         int size = pFeatureFunctions.size()
@@ -135,8 +138,10 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
                 + iiFeatureFunctions.size()
                 + raiFeatureFunctions.size()
                 + iiMaskFeatureFunctions.size();
-        if(size != featuresToCompute.size())
+        if(!all & (size != featuresToCompute.size()))
             throw new AssertionError("Not all features in the list were recognized.");
+
+        logService.info("Computing " + size + " features per channel.");
     }
 
     public static class FeatureVector {

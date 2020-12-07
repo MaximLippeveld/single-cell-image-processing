@@ -134,8 +134,9 @@ public class FeatureApp implements Command {
       }
 
       lister = refLister;
-      features = Arrays.asList("size", "sizeConvexHull", "sizeMask");
+      features = Collections.emptyList();
     }
+    boolean computeAllFeatures = features.size() == 0;
 
     Loader<UnsignedShortType, NativeBoolType> loader = new BioFormatsLoader(log);
     for (String channel : channels.split(",")) {
@@ -159,7 +160,7 @@ public class FeatureApp implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    FeatureVectorFactory<UnsignedShortType, NativeBoolType> factory = new FeatureVectorFactory<>(opService, features);
+    FeatureVectorFactory<UnsignedShortType, NativeBoolType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
 
     Thread producer = new Thread(() -> {
       int rejected = 0;
