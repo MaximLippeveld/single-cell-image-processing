@@ -15,18 +15,24 @@ import java.util.concurrent.*;
 
 public class CsvWriter extends FeatureVecWriter {
 
-    final private CompletionService<FeatureVectorFactory.FeatureVector> completionService;
-    final private ICSVWriter csvWriter;
-    final private Writer writer;
+    private ICSVWriter csvWriter;
+    private Writer writer;
 
-    public CsvWriter(LogService log, CompletionService<FeatureVectorFactory.FeatureVector> completionService, File file, StatusService statusService) throws IOException {
-        super(log, statusService);
-        this.completionService = completionService;
+    public CsvWriter(LogService log, StatusService statusService, CompletionService<FeatureVectorFactory.FeatureVector> completionService, String file) {
+        super(log, statusService, completionService);
 
-        writer = new FileWriter(file);
-        CSVWriterBuilder builder = new CSVWriterBuilder(writer);
-        builder.withQuoteChar(CSVWriter.NO_QUOTE_CHARACTER);
-        csvWriter = builder.build();
+        csvWriter = null;
+        writer = null;
+
+        try {
+            writer = new FileWriter(file);
+            CSVWriterBuilder builder = new CSVWriterBuilder(writer);
+            builder.withQuoteChar(CSVWriter.NO_QUOTE_CHARACTER);
+            csvWriter = builder.build();
+        } catch (IOException e) {
+            log.error(e);
+            System.exit(1);
+        }
     }
 
     @Override

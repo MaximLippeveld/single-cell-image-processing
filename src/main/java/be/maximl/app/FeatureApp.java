@@ -8,6 +8,7 @@ import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.feature.FeatureVectorFactory;
 import be.maximl.output.CsvWriter;
 import be.maximl.output.FeatureVecWriter;
+import be.maximl.output.SQLiteWriter;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -180,40 +181,45 @@ public class FeatureApp implements Command {
     final long startTime = System.currentTimeMillis();
     producer.start();
 
+    File output = new File(outputDirectory, outputFilename);
+
+    FeatureVecWriter writer;
+    switch (outputFilename.split(".")[1]) {
+      case ("sqlite3"):
+        writer = new SQLiteWriter(log, statusService, completionService, output.getAbsolutePath());
+        break;
+      default:
+        writer = new CsvWriter(log, statusService, completionService, output.getAbsolutePath());
+        break;
+    }
+    writer.start();
+
     try {
-      File output = new File(outputDirectory, outputFilename);
-      FeatureVecWriter writer = new CsvWriter(log, completionService, output, statusService);
-      writer.start();
+      producer.join();
+      int producerCount = counter.get();
+      log.info("PRODUCER COUNT " + producerCount);
 
-      try {
-        producer.join();
-        int producerCount = counter.get();
-        log.info("PRODUCER COUNT " + producerCount);
+      long endTime = System.currentTimeMillis();
+      double execTime = (endTime - startTime)/1000.;
+      log.info("Task producer finished after " + execTime + "s");
 
-        long endTime = System.currentTimeMillis();
-        double execTime = (endTime - startTime)/1000.;
-        log.info("Task producer finished after " + execTime + "s");
-
-        if (writer.isAlive()) {
-          synchronized (writer.getHandled()) {
-            while(producerCount != writer.getHandled().get()) {
-              writer.getHandled().wait();
-            }
+      if (writer.isAlive()) {
+        synchronized (writer.getHandled()) {
+          while(producerCount != writer.getHandled().get()) {
+            writer.getHandled().wait();
           }
-          writer.interrupt();
-          writer.join();
         }
-        log.info("WRITER COUNT " + writer.getHandled());
-        endTime = System.currentTimeMillis();
-        execTime = (endTime - startTime)/1000.;
-        log.info("CSV Writer finished after " + execTime + "s");
-
-        executor.shutdown();
-      } catch (InterruptedException e) {
-        log.error("Interrupted while shutting down");
-        e.printStackTrace();
+        writer.interrupt();
+        writer.join();
       }
-    } catch (IOException e) {
+      log.info("WRITER COUNT " + writer.getHandled());
+      endTime = System.currentTimeMillis();
+      execTime = (endTime - startTime)/1000.;
+      log.info("CSV Writer finished after " + execTime + "s");
+
+      executor.shutdown();
+    } catch (InterruptedException e) {
+      log.error("Interrupted while shutting down");
       e.printStackTrace();
     }
   }

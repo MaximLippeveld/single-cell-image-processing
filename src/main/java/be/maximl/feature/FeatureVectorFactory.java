@@ -21,8 +21,10 @@ import org.scijava.log.LogService;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.lang.Double.NaN;
+import static java.lang.Double.POSITIVE_INFINITY;
 
 public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>> {
 
@@ -145,30 +147,38 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
     }
 
     public static class FeatureVector {
-        private final Map<String, String> map = new HashMap<>();
+        private final Map<String, Object> map = new HashMap<>();
 
         public void add(String key, int channel, double value) {
-            map.put("feat:"+ key + "-" + channel, Double.toString(value));
+            map.put("feat_"+ key + "_" + channel, value);
         }
 
         public void add(String key, double value) {
-            map.put("feat:"+key, Double.toString(value));
+            map.put("feat_"+key, value);
         }
 
         public void add(String key, String value) {
-            map.put("meta:"+key, value);
+            map.put("meta_"+key, value);
         }
 
         public void add(String key, int value) {
-            map.put("meta:"+key, Integer.toString(value));
+            map.put("meta_"+key, value);
         }
 
-        public Map<String, String> getMap() {
+        public Map<String, Object> getMap() {
             return map;
         }
 
         public String[] getLine() {
-            return map.values().toArray(new String[0]);
+
+            String[] res = new String[map.size()];
+            int i =0;
+            for (Map.Entry<String, Object> entry: map.entrySet()) {
+                res[i] = entry.getValue().toString();
+                i++;
+            }
+
+            return res;
         }
 
         public <S> void computeFeature(
