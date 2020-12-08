@@ -187,10 +187,10 @@ public class FeatureApp implements Command {
     FeatureVecWriter writer;
     switch (FilenameUtils.getExtension(outputFilename)) {
       case ("sqlite3"):
-        writer = new SQLiteWriter(log, statusService, completionService, output.getAbsolutePath());
+        writer = new SQLiteWriter(log, statusService, completionService, output.getPath());
         break;
       default:
-        writer = new CsvWriter(log, statusService, completionService, output.getAbsolutePath());
+        writer = new CsvWriter(log, statusService, completionService, output.getPath());
         break;
     }
     writer.start();

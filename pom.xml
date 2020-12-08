@@ -19,43 +19,34 @@
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>3.1.2</version>
+				<executions>
+					<execution>
+						<id>copy-dependencies</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/lib</outputDirectory>
+							<overWriteReleases>false</overWriteReleases>
+							<overWriteSnapshots>false</overWriteSnapshots>
+							<overWriteIfNewer>true</overWriteIfNewer>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
 					<source>8</source>
 					<target>8</target>
 				</configuration>
 			</plugin>
-			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-				<executions>
-					<execution>
-						<phase>package</phase>
-						<goals>
-							<goal>single</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-					</descriptorRefs>
-					<archive>
-						<manifest>
-							<addClasspath>true</addClasspath>
-							<classpathPrefix>lib/</classpathPrefix>
-							<mainClass>be.maximl.app.FeatureApp</mainClass>
-						</manifest>
-						<manifestEntries>
-							<Class-Path>.</Class-Path>
-						</manifestEntries>
-					</archive>
-
-					<finalName>featureapp</finalName>
-				</configuration>
-			</plugin>
 		</plugins>
 	</build>
-
 
 	<name>SCI Feature extraction</name>
 	<description>A tool for feature extraction on single cell imaging data..</description>
@@ -108,6 +99,7 @@
 	</ciManagement>
 
 	<properties>
+		<package-name>be.maximl.app</package-name>
 		<main-class>be.maximl.app.FeatureApp</main-class>
 		<license.licenseName>unlicense</license.licenseName>
 		<license.copyrightOwners>N/A</license.copyrightOwners>
