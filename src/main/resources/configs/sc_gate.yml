@@ -1,0 +1,9 @@
+features:
+  - size
+  - sizeMask
+  - haralickContrast
+  - mean
+  - sobelRMS
+  - roundness
+files:
+  -
