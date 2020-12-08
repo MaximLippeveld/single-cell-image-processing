@@ -42,7 +42,10 @@ public class CsvWriter extends FeatureVecWriter {
             try {
                 Future<FeatureVectorFactory.FeatureVector> vec;
                 while (!Thread.currentThread().isInterrupted()) {
-                    vec = completionService.take();
+                    synchronized (completionService) {
+                        vec = completionService.take();
+                        completionService.notify();
+                    }
 
                     if (handleCount.get() == 0) {
                         String[] headers = vec.get().getMap().keySet().toArray(new String[0]);

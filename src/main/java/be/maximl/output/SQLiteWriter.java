@@ -88,7 +88,10 @@ public class SQLiteWriter extends FeatureVecWriter {
                 int internalCounter = 0;
                 int delta = 1000;
                 while (!Thread.currentThread().isInterrupted()) {
-                    vec = completionService.take();
+                    synchronized (completionService) {
+                        vec = completionService.take();
+                        completionService.notify();
+                    }
 
                     if (internalCounter == 0) {
                         // initialize SQLite table

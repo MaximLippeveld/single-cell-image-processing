@@ -165,18 +165,25 @@ public class FeatureApp implements Command {
     FeatureVectorFactory<UnsignedShortType, NativeBoolType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
 
     Thread producer = new Thread(() -> {
-      int rejected = 0;
+      boolean submitted;
       while(loader.hasNext()) {
         Image<UnsignedShortType, NativeBoolType> image = loader.next();
-        try {
-          completionService.submit(() -> factory.computeVector(image));
-          counter.incrementAndGet();
-        } catch (RejectedExecutionException e) {
-          rejected++;
-          log.error("Rejected task " + rejected);
+        submitted = false;
+
+        while(!submitted) {
+          try {
+            completionService.submit(() -> factory.computeVector(image));
+            counter.incrementAndGet();
+            submitted = true;
+          } catch (RejectedExecutionException e) {
+            try {
+              synchronized (completionService) {
+                completionService.wait();
+              }
+            } catch (InterruptedException ignored) { }
+          }
         }
       }
-      log.error("Encountered " + rejected + " rejected tasks");
     });
 
     final long startTime = System.currentTimeMillis();
