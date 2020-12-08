@@ -106,12 +106,16 @@ public class SQLiteWriter extends FeatureVecWriter {
 
                     if (internalCounter % delta == 0) {
                         rowStatement.executeBatch();
-                        synchronized (handleCount) {
-                            int c = handleCount.addAndGet(delta);
-                            handleCount.notify();
-                            log.info("Written " + c + " vectors.");
+                    }
+
+                    synchronized (handleCount) {
+                        int c = handleCount.incrementAndGet();
+                        handleCount.notify();
+                        if (c % 500 == 0) {
+                            log.info("Submmited " + c + " vectors to database.");
                         }
                     }
+
                 }
 
             } catch (ExecutionException e) {
@@ -121,6 +125,8 @@ public class SQLiteWriter extends FeatureVecWriter {
                 log.error("Interrupted while waiting");
             } finally {
                 log.info("Finalize writer");
+                if (rowStatement != null)
+                    rowStatement.executeBatch();
                 connection.close();
             }
         } catch (SQLException e) {

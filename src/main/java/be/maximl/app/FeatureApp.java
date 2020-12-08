@@ -21,6 +21,7 @@ import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
+import org.apache.commons.io.FilenameUtils;
 import org.scijava.app.StatusService;
 import org.scijava.command.Command;
 import org.scijava.command.CommandModule;
@@ -184,7 +185,7 @@ public class FeatureApp implements Command {
     File output = new File(outputDirectory, outputFilename);
 
     FeatureVecWriter writer;
-    switch (outputFilename.split(".")[1]) {
+    switch (FilenameUtils.getExtension(outputFilename)) {
       case ("sqlite3"):
         writer = new SQLiteWriter(log, statusService, completionService, output.getAbsolutePath());
         break;
