@@ -20,11 +20,11 @@ import net.imglib2.view.Views;
 import org.scijava.log.LogService;
 
 import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.lang.Double.NaN;
-import static java.lang.Double.POSITIVE_INFINITY;
 
 public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>> {
 
@@ -37,113 +37,115 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
     final private Map<String, Function<RandomAccessibleInterval<T>, Double>> raiFeatureFunctions = new HashMap<>();
 
     final public static List<String> FEATURESET_SMALL = Arrays.asList("stdDev", "median", "min", "max", "size", "eccentricity");
+    private final List<String> featuresToCompute;
+    private final boolean all;
+    private int featCounter = 0;
+
+    private <U> BiConsumer<String, Function<U, Double>> addFunc(Map<String, Function<U, Double>> map) {
+        return (key, func) -> {
+            String p = key.split("-")[0];
+            if (all | featuresToCompute.contains(p)) {
+                featCounter++;
+                map.put(key, func);
+                if (!all)
+                    featuresToCompute.remove(p);
+            }
+        };
+    }
 
     public FeatureVectorFactory(OpService opService, LogService logService, List<String> featuresToCompute, boolean all) {
         this.opService = opService;
         this.logService = logService;
+        this.featuresToCompute = featuresToCompute;
+        this.all = all;
+
+        BiConsumer<String, Function<Iterable<T>, Double>> iFuncAdder = addFunc(iFeatureFunctions);
+        BiConsumer<String, Function<IterableInterval<T>, Double>> iiFuncAdder = addFunc(iiFeatureFunctions);
+        BiConsumer<String, Function<IterableInterval<S>, Double>> iiMaskFuncAdder = addFunc(iiMaskFeatureFunctions);
+        BiConsumer<String, Function<Polygon2D, Double>> pFuncAdder = addFunc(pFeatureFunctions);
+        BiConsumer<String, Function<RandomAccessibleInterval<T>, Double>> raiFuncAdder = addFunc(raiFeatureFunctions);
 
         // intensity features
-        if (featuresToCompute.contains("mean") | all)
-            iFeatureFunctions.put("mean", s -> opService.stats().mean(s).getRealDouble());
-        if (featuresToCompute.contains("geometricMean") | all)
-            iFeatureFunctions.put("geometricMean", s -> opService.stats().geometricMean(s).getRealDouble());
-        if (featuresToCompute.contains("harmonicMean") | all)
-            iFeatureFunctions.put("harmonicMean", s -> opService.stats().harmonicMean(s).getRealDouble());
-        if (featuresToCompute.contains("stdDev") | all)
-            iFeatureFunctions.put("stdDev", s -> opService.stats().stdDev(s).getRealDouble());
-        if (featuresToCompute.contains("median") | all)
-            iFeatureFunctions.put("median", s -> opService.stats().median(s).getRealDouble());
-        if (featuresToCompute.contains("sum") | all)
-            iFeatureFunctions.put("sum", s -> opService.stats().sum(s).getRealDouble());
-        if (featuresToCompute.contains("min") | all)
-            iFeatureFunctions.put("min", s -> opService.stats().min(s).getRealDouble());
-        if (featuresToCompute.contains("max") | all)
-            iFeatureFunctions.put("max", s -> opService.stats().max(s).getRealDouble());
-        if (featuresToCompute.contains("kurtosis") | all)
-            iFeatureFunctions.put("kurtosis", s -> opService.stats().kurtosis(s).getRealDouble());
-        if (featuresToCompute.contains("skewness") | all)
-            iFeatureFunctions.put("skewness", s -> opService.stats().skewness(s).getRealDouble());
-        if (featuresToCompute.contains("moment3AboutMean") | all)
-            iFeatureFunctions.put("moment3AboutMean", s -> opService.stats().moment3AboutMean(s).getRealDouble());
+        iFuncAdder.accept("mean", s -> opService.stats().mean(s).getRealDouble());
+        iFuncAdder.accept("geometricMean", s -> opService.stats().geometricMean(s).getRealDouble());
+        iFuncAdder.accept("harmonicMean", s -> opService.stats().harmonicMean(s).getRealDouble());
+        iFuncAdder.accept("stdDev", s -> opService.stats().stdDev(s).getRealDouble());
+        iFuncAdder.accept("median", s -> opService.stats().median(s).getRealDouble());
+        iFuncAdder.accept("sum", s -> opService.stats().sum(s).getRealDouble());
+        iFuncAdder.accept("min", s -> opService.stats().min(s).getRealDouble());
+        iFuncAdder.accept("max", s -> opService.stats().max(s).getRealDouble());
+        iFuncAdder.accept("kurtosis", s -> opService.stats().kurtosis(s).getRealDouble());
+        iFuncAdder.accept("skewness", s -> opService.stats().skewness(s).getRealDouble());
+        iFuncAdder.accept("moment3AboutMean", s -> opService.stats().moment3AboutMean(s).getRealDouble());
 
         // texture
         HaralickNamespace haralick = opService.haralick();
-        if (featuresToCompute.contains("haralickContrast") | all) {
-            for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
-                iiFeatureFunctions.put(
-                        "haralickContrast" + orientation,
-                        s -> haralick.contrast(s, 50, 5, orientation).getRealDouble()
-                );
-            }
+        if (featuresToCompute.contains("haralickContrast")) {
+            featuresToCompute.remove("haralickContrast");
+            featuresToCompute.addAll(Arrays.stream(MatrixOrientation2D.values()).map(o -> "haralickContrast" + o).collect(Collectors.toList()));
         }
-        if (featuresToCompute.contains("haralickCorrelation") | all) {
-            for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
-                iiFeatureFunctions.put(
-                        "haralickCorrelation" + orientation,
-                        s -> haralick.correlation(s, 50, 5, orientation).getRealDouble()
-                );
-            }
+        for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
+            iiFuncAdder.accept(
+                    "haralickContrast" + orientation,
+                    s -> haralick.contrast(s, 50, 5, orientation).getRealDouble()
+            );
         }
-        if (featuresToCompute.contains("haralickEntropy") | all) {
-            for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
-                iiFeatureFunctions.put(
-                        "haralickEntropy" + orientation,
-                        s -> haralick.entropy(s, 50, 5, orientation).getRealDouble()
-                );
-            }
+
+        if (featuresToCompute.contains("haralickCorrelation")) {
+            featuresToCompute.remove("haralickCorrelation");
+            featuresToCompute.addAll(Arrays.stream(MatrixOrientation2D.values()).map(o -> "haralickCorrelation" + o).collect(Collectors.toList()));
+        }
+        for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
+            iiFuncAdder.accept(
+                    "haralickCorrelation" + orientation,
+                    s -> haralick.correlation(s, 50, 5, orientation).getRealDouble()
+            );
+        }
+
+        if (featuresToCompute.contains("haralickEntropy")) {
+            featuresToCompute.remove("haralickEntropy");
+            featuresToCompute.addAll(Arrays.stream(MatrixOrientation2D.values()).map(o -> "haralickEntropy" + o).collect(Collectors.toList()));
+        }
+        for (MatrixOrientation2D orientation : MatrixOrientation2D.values()) {
+            iiFuncAdder.accept(
+                    "haralickEntropy" + orientation,
+                    s -> haralick.entropy(s, 50, 5, orientation).getRealDouble()
+            );
         }
 
         TamuraNamespace tamura = opService.tamura();
-        if (featuresToCompute.contains("tamuraContrast") | all) {
-            raiFeatureFunctions.put("tamuraContrast", s -> tamura.contrast(s).getRealDouble());
-        }
+        raiFuncAdder.accept("tamuraContrast", s -> tamura.contrast(s).getRealDouble());
 
-        if (featuresToCompute.contains("zernike") | all) {
-            ZernikeNamespace zernike = opService.zernike();
-            iiFeatureFunctions.put("zernikeMagnitude", s -> zernike.magnitude(s, 3, 1).getRealDouble());
-            iiFeatureFunctions.put("zernikePhase", s -> zernike.phase(s, 3, 1).getRealDouble());
-        }
+        ZernikeNamespace zernike = opService.zernike();
+        iiFuncAdder.accept("zernikeMagnitude", s -> zernike.magnitude(s, 3, 1).getRealDouble());
+        iiFuncAdder.accept("zernikePhase", s -> zernike.phase(s, 3, 1).getRealDouble());
 
-        if (featuresToCompute.contains("sobelRMS") | all) {
-            Function<RandomAccessibleInterval<T>, Double> func = s -> {
-                RandomAccessibleInterval<T> sobel = opService.filter().sobel(s);
-                double res = .0;
-                double count = 0;
-                for (T t : ImgView.wrap(sobel)) {
-                    res += Math.pow(t.getRealDouble(), 2);
-                    count++;
-                }
-                return Math.sqrt(res/count);
-            };
-            raiFeatureFunctions.put("sobelRMS", func);
-        }
+        Function<RandomAccessibleInterval<T>, Double> func = s -> {
+            RandomAccessibleInterval<T> sobel = opService.filter().sobel(s);
+            double res = .0;
+            double count = 0;
+            for (T t : ImgView.wrap(sobel)) {
+                res += Math.pow(t.getRealDouble(), 2);
+                count++;
+            }
+            return Math.sqrt(res/count);
+        };
+        raiFuncAdder.accept("sobelRMS", func);
 
         // geometry features
-        if (featuresToCompute.contains("eccentricity") | all)
-            pFeatureFunctions.put("eccentricity", s -> opService.geom().eccentricity(s).getRealDouble());
-        if (featuresToCompute.contains("circularity") | all)
-            pFeatureFunctions.put("circularity", s -> opService.geom().circularity(s).getRealDouble());
-        if (featuresToCompute.contains("roundness") | all) // roundess = aspectRatio
-            pFeatureFunctions.put("roundness", s -> opService.geom().roundness(s).getRealDouble());
-        if (featuresToCompute.contains("convexity") | all)
-            pFeatureFunctions.put("convexity", s -> opService.geom().convexity(s).getRealDouble());
-        if (featuresToCompute.contains("size") | all)
-            pFeatureFunctions.put("size", s -> opService.geom().size(s).getRealDouble());
-        if (featuresToCompute.contains("sizeConvexHull") | all)
-            pFeatureFunctions.put("sizeConvexHull", s -> opService.geom().sizeConvexHull(s).getRealDouble());
+        pFuncAdder.accept("eccentricity", s -> opService.geom().eccentricity(s).getRealDouble());
+        pFuncAdder.accept("circularity", s -> opService.geom().circularity(s).getRealDouble());
+        pFuncAdder.accept("roundness", s -> opService.geom().roundness(s).getRealDouble());
+        pFuncAdder.accept("convexity", s -> opService.geom().convexity(s).getRealDouble());
+        pFuncAdder.accept("size", s -> opService.geom().size(s).getRealDouble());
+        pFuncAdder.accept("sizeConvexHull", s -> opService.geom().sizeConvexHull(s).getRealDouble());
 
-        if (featuresToCompute.contains("sizeMask") | all)
-            iiMaskFeatureFunctions.put("sizeMask", s -> opService.geom().size(s).getRealDouble());
+        iiMaskFuncAdder.accept("sizeMask", s -> opService.geom().size(s).getRealDouble());
 
-        int size = pFeatureFunctions.size()
-                + iFeatureFunctions.size()
-                + iiFeatureFunctions.size()
-                + raiFeatureFunctions.size()
-                + iiMaskFeatureFunctions.size();
-        if(!all & (size != featuresToCompute.size()))
+        if(!all & (featuresToCompute.size() > 0))
             throw new AssertionError("Not all features in the list were recognized.");
 
-        logService.info("Computing " + size + " features per channel.");
+        logService.info("Computing " + featCounter + " features per channel.");
     }
 
     public static class FeatureVector {
