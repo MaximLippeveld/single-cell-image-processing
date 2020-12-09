@@ -15,6 +15,7 @@ import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -57,13 +58,13 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   @Override
   public void setPlanes(short[] planes) {
     this.planes = planes;
-    img =  ArrayImgs.unsignedShorts(planes, getDims());
+    img =  ArrayImgs.unsignedShorts(planes, getDimensions());
   }
 
   @Override
   public void setMasks(boolean[] masks) {
     this.masks = masks;
-    maskImg = ArrayImgs.booleans(masks, getDims());
+    maskImg = ArrayImgs.booleans(masks, getDimensions());
   }
 
   @Override
@@ -72,7 +73,8 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
     dims[1] = planeLengths[1];
   }
 
-  private long[] getDims() {
+  @Override
+  public long[] getDimensions() {
     return dims;
   }
 
@@ -98,6 +100,12 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   @Override
   public IterableInterval<NativeBoolType> getMaskAsIterableInterval(int pos) {
     return Views.hyperSlice(getMaskImg(), 2, pos);
+  }
+
+  @Override
+  public boolean[] getMaskAsBooleanArray(int i) {
+    int planeSize = (int) (getDimensions()[0] * getDimensions()[1]);
+    return Arrays.copyOfRange(masks, i*planeSize, (i+1)*planeSize);
   }
 
   /**

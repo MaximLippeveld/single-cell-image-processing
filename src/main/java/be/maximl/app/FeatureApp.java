@@ -5,20 +5,18 @@ import be.maximl.data.Image;
 import be.maximl.data.Loader;
 import be.maximl.data.bf.BioFormatsLoader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
+import be.maximl.data.validators.ConnectedComponentsValidator;
+import be.maximl.data.validators.Validator;
 import be.maximl.feature.FeatureVectorFactory;
 import be.maximl.output.CsvWriter;
 import be.maximl.output.FeatureVecWriter;
 import be.maximl.output.SQLiteWriter;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
-import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
@@ -140,7 +138,8 @@ public class FeatureApp implements Command {
     }
     boolean computeAllFeatures = features.size() == 0;
 
-    Loader<UnsignedShortType, NativeBoolType> loader = new BioFormatsLoader(log);
+    Validator<UnsignedShortType, NativeBoolType> validator = new ConnectedComponentsValidator<>();
+    Loader<UnsignedShortType, NativeBoolType> loader = new BioFormatsLoader(log, validator);
     for (String channel : channels.split(",")) {
       loader.addChannel(Integer.parseInt(channel));
     }
@@ -168,19 +167,22 @@ public class FeatureApp implements Command {
       boolean submitted;
       while(loader.hasNext()) {
         Image<UnsignedShortType, NativeBoolType> image = loader.next();
-        submitted = false;
 
-        while(!submitted) {
-          try {
-            completionService.submit(() -> factory.computeVector(image));
-            counter.incrementAndGet();
-            submitted = true;
-          } catch (RejectedExecutionException e) {
+        if (image != null) {
+          submitted = false;
+
+          while(!submitted) {
             try {
-              synchronized (completionService) {
-                completionService.wait();
-              }
-            } catch (InterruptedException ignored) { }
+              completionService.submit(() -> factory.computeVector(image));
+              counter.incrementAndGet();
+              submitted = true;
+            } catch (RejectedExecutionException e) {
+              try {
+                synchronized (completionService) {
+                  completionService.wait();
+                }
+              } catch (InterruptedException ignored) { }
+            }
           }
         }
       }
@@ -206,6 +208,7 @@ public class FeatureApp implements Command {
       producer.join();
       int producerCount = counter.get();
       log.info("PRODUCER COUNT " + producerCount);
+      log.info("Validator flagged " + validator.getInvalidCount() + " images");
 
       long endTime = System.currentTimeMillis();
       double execTime = (endTime - startTime)/1000.;

@@ -4,6 +4,7 @@ import be.maximl.data.Image;
 import be.maximl.data.Loader;
 import be.maximl.data.bf.BioFormatsLoader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
+import be.maximl.data.validators.ConnectedComponentsValidator;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.display.ImageDisplay;
@@ -20,6 +21,7 @@ import net.imglib2.view.Views;
 import org.scijava.util.Colors;
 
 import java.io.IOException;
+import java.lang.annotation.Native;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -42,7 +44,8 @@ public class ImageViewerApp {
         lister.setPath(importDirectory);
         lister.addExtension("cif");
 
-        Loader<UnsignedShortType, NativeBoolType> relation = new BioFormatsLoader(ij.log());
+        ConnectedComponentsValidator<UnsignedShortType, NativeBoolType> validator = new ConnectedComponentsValidator<>();
+        Loader<UnsignedShortType, NativeBoolType> relation = new BioFormatsLoader(ij.log(), validator);
         for (int i=0;i<3;i++) {
             relation.addChannel(i);
         }

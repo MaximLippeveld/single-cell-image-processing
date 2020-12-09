@@ -174,5 +174,12 @@
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.github.ijpb/MorphoLibJ -->
+		<dependency>
+			<groupId>com.github.ijpb</groupId>
+			<artifactId>MorphoLibJ</artifactId>
+			<version>1.4.0</version>
+		</dependency>
+
 	</dependencies>
 </project>

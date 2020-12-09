@@ -1,16 +1,13 @@
 package be.maximl.data.bf;
 
-import be.maximl.data.FileLister;
-import be.maximl.data.Image;
-import be.maximl.data.Loader;
-import be.maximl.data.RecursiveExtensionFilteredLister;
+import be.maximl.data.*;
+import be.maximl.data.validators.Validator;
 import io.scif.FormatException;
 import io.scif.Plane;
 import io.scif.Reader;
 import io.scif.SCIFIO;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
-import org.apache.commons.lang.ArrayUtils;
 import org.scijava.io.location.FileLocation;
 import org.scijava.log.LogService;
 
@@ -19,8 +16,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 
 
@@ -30,14 +25,16 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
   private Iterator<File> lister;
   final private ArrayList<Integer> channels = new ArrayList<>();
   final private SCIFIO scifio = new SCIFIO();
+  final private Validator<UnsignedShortType, NativeBoolType> validator;
   private int imageLimit = -1;
 
   private Reader currentReader;
   private int currentFinalIndex;
   private int currentIndex = 0;
 
-  public BioFormatsLoader(LogService log) {
+  public BioFormatsLoader(LogService log, Validator<UnsignedShortType, NativeBoolType> validator) {
     this.log = log;
+    this.validator = validator;
   }
 
   @Override
@@ -127,8 +124,11 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
 
     try {
       Image<UnsignedShortType, NativeBoolType> image = imageFromReader(currentReader, currentIndex);
-
       currentIndex += 2;
+
+      boolean valid = validator.validate(image);
+      if (!valid)
+        return null;
 
       if (currentIndex >= currentFinalIndex) {
         if (lister.hasNext()) {
@@ -145,6 +145,7 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
     } catch (IOException e) {
       e.printStackTrace();
     } catch (FormatException e) {
+      log.error("Format exception " + currentReader.getMetadata().getDatasetName());
       e.printStackTrace();
     }
 

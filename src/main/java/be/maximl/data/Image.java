@@ -53,4 +53,8 @@ public interface Image<T extends RealType<T>, S extends NativeType<S>> extends S
     void setFilename(String filename);
 
     void setSize(long size);
+
+    boolean[] getMaskAsBooleanArray(int i);
+
+    long[] getDimensions();
 }
