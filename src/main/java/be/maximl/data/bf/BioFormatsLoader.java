@@ -126,10 +126,6 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
       Image<UnsignedShortType, NativeBoolType> image = imageFromReader(currentReader, currentIndex);
       currentIndex += 2;
 
-      boolean valid = validator.validate(image);
-      if (!valid)
-        return null;
-
       if (currentIndex >= currentFinalIndex) {
         if (lister.hasNext()) {
           currentIndex = 0;
@@ -140,6 +136,10 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
           currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
         }
       }
+
+      boolean valid = validator.validate(image);
+      if (!valid)
+        return null;
 
       return image;
     } catch (IOException e) {
