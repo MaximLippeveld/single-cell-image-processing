@@ -8,10 +8,14 @@ import inra.ijpb.binary.conncomp.FloodFillComponentsLabeling;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class ConnectedComponentsValidator<T extends RealType<T>, S extends NativeType<S>> implements Validator<T,S> {
 
     private int invalid = 0;
+    final private List<Integer> invalidList = new ArrayList<>();
 
     @Override
     public boolean validate(Image<T,S> image) {
@@ -34,6 +38,7 @@ public class ConnectedComponentsValidator<T extends RealType<T>, S extends Nativ
                 if (histogram[j] > 0) {
                     if (count) {
                         invalid++;
+                        invalidList.add(image.getId());
                         return false;
                     }
                     count = true;
@@ -47,5 +52,10 @@ public class ConnectedComponentsValidator<T extends RealType<T>, S extends Nativ
     @Override
     public int getInvalidCount() {
         return invalid;
+    }
+
+    @Override
+    public List<Integer> getInvalidIds() {
+        return invalidList;
     }
 }

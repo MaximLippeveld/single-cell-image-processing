@@ -1,6 +1,10 @@
 package be.maximl.feature;
 
 import be.maximl.data.Image;
+import ij.process.ImageProcessor;
+import inra.ijpb.morphology.Morphology;
+import inra.ijpb.morphology.Strel;
+import inra.ijpb.morphology.strel.SquareStrel;
 import net.imagej.ops.OpService;
 import net.imagej.ops.features.haralick.HaralickNamespace;
 import net.imagej.ops.features.tamura2d.TamuraNamespace;
@@ -10,6 +14,7 @@ import net.imglib2.*;
 import net.imglib2.RandomAccess;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.ImgView;
+import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.roi.MaskInterval;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
@@ -35,6 +40,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
     final private Map<String, Function<IterableInterval<S>, Double>> iiMaskFeatureFunctions = new HashMap<>();
     final private Map<String, Function<Polygon2D, Double>> pFeatureFunctions = new HashMap<>();
     final private Map<String, Function<RandomAccessibleInterval<T>, Double>> raiFeatureFunctions = new HashMap<>();
+    final private Map<String, Function<ImageProcessor, Double>> ipFeatureFunctions = new HashMap<>();
 
     final public static List<String> FEATURESET_SMALL = Arrays.asList("stdDev", "median", "min", "max", "size", "eccentricity");
     private final List<String> featuresToCompute;
@@ -64,6 +70,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
         BiConsumer<String, Function<IterableInterval<S>, Double>> iiMaskFuncAdder = addFunc(iiMaskFeatureFunctions);
         BiConsumer<String, Function<Polygon2D, Double>> pFuncAdder = addFunc(pFeatureFunctions);
         BiConsumer<String, Function<RandomAccessibleInterval<T>, Double>> raiFuncAdder = addFunc(raiFeatureFunctions);
+        BiConsumer<String, Function<ImageProcessor, Double>> ipFuncAdder = addFunc(ipFeatureFunctions);
 
         // intensity features
         iFuncAdder.accept("mean", s -> opService.stats().mean(s).getRealDouble());
@@ -120,7 +127,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
         iiFuncAdder.accept("zernikeMagnitude", s -> zernike.magnitude(s, 3, 1).getRealDouble());
         iiFuncAdder.accept("zernikePhase", s -> zernike.phase(s, 3, 1).getRealDouble());
 
-        Function<RandomAccessibleInterval<T>, Double> func = s -> {
+        raiFuncAdder.accept("sobelRMS", s -> {
             RandomAccessibleInterval<T> sobel = opService.filter().sobel(s);
             double res = .0;
             double count = 0;
@@ -129,8 +136,26 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
                 count++;
             }
             return Math.sqrt(res/count);
+        });
+
+        Function<Integer, Function<ImageProcessor, Double>> gradientRMS = i -> s -> {
+            Strel se = SquareStrel.fromDiameter(i);
+            ImageProcessor grad = Morphology.gradient(s, se);
+
+            float [][] values = grad.getFloatArray();
+            float sum = 0;
+            for (float[] arr: values) {
+                for (float v: arr) {
+                    sum+=Math.pow(v, 2);
+                }
+            }
+            return Math.sqrt(sum / (grad.getHeight() * grad.getWidth()));
         };
-        raiFuncAdder.accept("sobelRMS", func);
+        List<String> gradientRMSFeatures = featuresToCompute.stream().filter(s -> s.matches("^gradientRMS:[0-9]")).collect(Collectors.toList());
+        for (String g : gradientRMSFeatures) {
+            int i = Integer.parseInt(g.split(":")[1]);
+            ipFuncAdder.accept(g, gradientRMS.apply(i));
+        }
 
         // geometry features
         pFuncAdder.accept("eccentricity", s -> opService.geom().eccentricity(s).getRealDouble());
@@ -250,6 +275,11 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
             }
             for(Map.Entry<String, Function<RandomAccessibleInterval<T>, Double>> entry : raiFeatureFunctions.entrySet()) {
                 vec.computeFeature(entry.getKey(), channel, entry.getValue(), rai, compute);
+            }
+
+            ImageProcessor ip = ImageJFunctions.wrap(rai, "image").getProcessor();
+            for(Map.Entry<String, Function<ImageProcessor, Double>> entry : ipFeatureFunctions.entrySet()) {
+                vec.computeFeature(entry.getKey(), channel, entry.getValue(), ip, compute);
             }
         }
 
