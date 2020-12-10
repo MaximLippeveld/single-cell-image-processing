@@ -120,6 +120,7 @@ public class FeatureApp implements Command {
 
         //yaml present
         lister = (FileLister) () -> config.files;
+        log.info(config.files);
         features = config.features;
       } catch (IOException e) {
         e.printStackTrace();
@@ -195,12 +196,15 @@ public class FeatureApp implements Command {
 
     FeatureVecWriter writer;
     switch (FilenameUtils.getExtension(outputFilename)) {
-      case ("sqlite3"):
+      case "sqlite3":
         writer = new SQLiteWriter(log, statusService, completionService, output.getPath());
         break;
-      default:
+      case "csv":
         writer = new CsvWriter(log, statusService, completionService, output.getPath());
         break;
+      default:
+        log.error("Output extension isn't recognized");
+        return;
     }
     writer.start();
 
