@@ -6,8 +6,10 @@ import io.scif.FormatException;
 import io.scif.Plane;
 import io.scif.Reader;
 import io.scif.SCIFIO;
-import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.img.Img;
+import net.imglib2.img.array.ArrayImgs;
+import net.imglib2.type.BooleanType;
+import net.imglib2.type.numeric.RealType;
 import org.scijava.io.location.FileLocation;
 import org.scijava.log.LogService;
 
@@ -19,26 +21,26 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 
-public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolType> {
+public class BioFormatsLoader<T extends RealType<T>, S extends BooleanType<S>> implements Loader<T, S> {
   private static final long serialVersionUID = 4598175080399877334L;
   private final LogService log;
   private Iterator<File> lister;
   final private ArrayList<Integer> channels = new ArrayList<>();
   final private SCIFIO scifio = new SCIFIO();
-  final private Validator<UnsignedShortType, NativeBoolType> validator;
+  final private Validator<T, S> validator;
   private int imageLimit = -1;
 
   private Reader currentReader;
   private int currentFinalIndex;
   private int currentIndex = 0;
 
-  public BioFormatsLoader(LogService log, Validator<UnsignedShortType, NativeBoolType> validator) {
+  public BioFormatsLoader(LogService log, Validator<T, S> validator) {
     this.log = log;
     this.validator = validator;
   }
 
   @Override
-  public Image<UnsignedShortType, NativeBoolType> imageFromReader(Reader reader, int index) throws IOException, FormatException {
+  public Image<T, S> imageFromReader(Reader reader, int index) throws IOException, FormatException {
 
     int imgIndex;
     int maskIndex;
@@ -48,13 +50,12 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
     short[] flatData;
     boolean[] maskData;
     short[] planeTmp;
-    byte[] maskTmp;
-    Image<UnsignedShortType, NativeBoolType> image;
+    Image<T, S> image;
 
     imgIndex = index;
     maskIndex = index+1;
 
-    image = new BioFormatsImage(imgIndex/2);
+    image = new BioFormatsImage<>(imgIndex/2);
     image.setDirectory(reader.getMetadata().getSourceLocation().getURI().getPath());
     image.setFilename(reader.getMetadata().getSourceLocation().getName());
     image.setExtension(reader.getFormatName());
@@ -85,8 +86,8 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
       System.arraycopy(planeTmp, 0, flatData, j * pointsInPlane, pointsInPlane);
     }
 
-    image.setPlanes(flatData);
-    image.setMasks(maskData);
+    image.setPlanes((Img<T>) ArrayImgs.unsignedShorts(flatData, image.getDimensions()));
+    image.setMasks((Img<S>) ArrayImgs.booleans(maskData, image.getDimensions()));
 
     return image;
   }
@@ -120,10 +121,10 @@ public class BioFormatsLoader implements Loader<UnsignedShortType, NativeBoolTyp
   }
 
   @Override
-  public Image<UnsignedShortType, NativeBoolType> next() {
+  public Image<T, S> next() {
 
     try {
-      Image<UnsignedShortType, NativeBoolType> image = imageFromReader(currentReader, currentIndex);
+      Image<T, S> image = imageFromReader(currentReader, currentIndex);
       currentIndex += 2;
 
       if (currentIndex >= currentFinalIndex) {

@@ -1,11 +1,14 @@
 package be.maximl.data;
 
+import ij.process.ImageProcessor;
 import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImg;
 import net.imglib2.img.basictypeaccess.array.BooleanArray;
 import net.imglib2.roi.MaskInterval;
+import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
@@ -14,19 +17,26 @@ import net.imglib2.type.numeric.integer.UnsignedShortType;
 import java.io.Serializable;
 import java.util.List;
 
-public interface Image<T extends RealType<T>, S extends NativeType<S>> extends Serializable {
+/**
+ * Wrapper class which holds image-data to be processed.
+ *
+ * @param <T>
+ * @param <S>
+ */
+public interface Image<T extends RealType<T>, S extends BooleanType<S>> extends Serializable {
 
+    /**
+     * @return unique identifier
+     */
     int getId();
 
-    short[] getPlanes();
+    void setPlanes(Img<T> planes);
 
-    void setPlanes(short[] planes);
-
-    void setMasks(boolean[] masks);
+    void setMasks(Img<S> masks);
 
     void setPlaneLengths(long[] planeLengths);
 
-    RandomAccessibleInterval<T> getImg();
+    RandomAccessibleInterval<T> getRAI();
 
     ImgFactory<T> getFactory();
 
@@ -54,7 +64,7 @@ public interface Image<T extends RealType<T>, S extends NativeType<S>> extends S
 
     void setSize(long size);
 
-    boolean[] getMaskAsBooleanArray(int i);
+    ImageProcessor getMaskAsImageProcessor(int i);
 
     long[] getDimensions();
 }

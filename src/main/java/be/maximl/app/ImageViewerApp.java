@@ -21,7 +21,6 @@ import net.imglib2.view.Views;
 import org.scijava.util.Colors;
 
 import java.io.IOException;
-import java.lang.annotation.Native;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -64,7 +63,7 @@ public class ImageViewerApp {
 
         Image<UnsignedShortType, NativeBoolType> img = relation.next();
 
-        IterableInterval<UnsignedShortType> it = Regions.sample(img.getMaskInterval(0), Views.hyperSlice(img.getImg(), 2, 0));
+        IterableInterval<UnsignedShortType> it = Regions.sample(img.getMaskInterval(0), Views.hyperSlice(img.getRAI(), 2, 0));
         Img<UnsignedShortType> it2img = ij.op().create().img(it);
         RandomAccess<UnsignedShortType> racc = it2img.randomAccess();
 
@@ -97,7 +96,7 @@ public class ImageViewerApp {
 
         ij.ui().show(it2img);
 
-        ImageDisplay id = (ImageDisplay) ij.display().createDisplay(img.getImg());
+        ImageDisplay id = (ImageDisplay) ij.display().createDisplay(img.getRAI());
 
         Polygon2D polygon = ij.op().geom().contour(Masks.toRandomAccessibleInterval(img.getMaskInterval(0)), true);
         ij.log().info(ij.op().geom().size(polygon));

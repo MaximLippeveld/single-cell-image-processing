@@ -16,7 +16,9 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.scif.FormatException;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
+import net.imglib2.type.BooleanType;
 import net.imglib2.type.logic.NativeBoolType;
+import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
@@ -34,8 +36,12 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
+/**
+ * Computes descriptive image features for images contained in specified files. Can be used as an
+ * ImageJ plugin or as a standalone package through a CLI interface.
+ */
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
-public class FeatureApp implements Command {
+public class FeatureApp<T extends RealType<T>, S extends BooleanType<S>> implements Command {
 
   private static final String IMAGELIMIT_DESC = "Maximum number of images to load (-1 loads all images).";
   private static final String INPUTDIR_DESC = "Directory containing input files.";
@@ -48,6 +54,9 @@ public class FeatureApp implements Command {
   private static final String FEATURESET_DESC = "Specify which featureset to compute.";
   private static final String YAMLCONFIG_DESC = ".yml config file containing input files and features to compute.";
 
+  /**
+   * Contains configuration loaded from a YAML-file.
+   */
   static class Config {
     private List<File> files;
     private List<String> features;
@@ -108,17 +117,35 @@ public class FeatureApp implements Command {
   @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false, persist = false)
   private File yamlConfig = null;
 
+  /**
+   * Orchestrates the entire feature computation process from reading in parameters/configuration to
+   * handling the lifecycle of all processing threads.
+   *
+   * The method proceeds as follows:
+   * <ol>
+   *     <li>setting up a <a href="#{@link}>{@link FileLister} to iterate over the input files,</a></li>
+   *     <li>determining which features to compute and setting up a <a href="#{@link}">{@link FeatureVectorFactory}</a>,</li>
+   *     <li>setting up a <a href="#{@link}>{@link Loader} to iterate over all images,</a></li>
+   *     <li>starting threads for submitting tasks to the factory and writing the output, and
+   *     instantiating a <a href="#{@link}">{@link CompletionService}</a> for handling the feature computation tasks,</li>
+   *     <li>and, finally, handling the teardown of all threads.</li>
+   * </ol>
+   */
   @Override
   public void run() {
 
+    /*
+    * Input files and the featureset to compute are either passed
+    * on through the @Parameter-annotated class members or in a YAML-file.
+    */
     FileLister lister;
     List<String> features;
     if (yamlConfig != null) {
+      // read config from yaml
       ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
       try {
         Config config = mapper.readValue(yamlConfig, Config.class);
 
-        //yaml present
         lister = (FileLister) () -> config.files;
         log.info(config.files);
         features = config.features;
@@ -127,6 +154,7 @@ public class FeatureApp implements Command {
         return;
       }
     } else {
+      // read config from class members
       RecursiveExtensionFilteredLister refLister = new RecursiveExtensionFilteredLister();
       refLister.setFileLimit(fileLimit);
       refLister.setPath(inputDirectory.getPath());
@@ -137,10 +165,13 @@ public class FeatureApp implements Command {
       lister = refLister;
       features = Collections.emptyList();
     }
-    boolean computeAllFeatures = features.size() == 0;
 
-    Validator<UnsignedShortType, NativeBoolType> validator = new ConnectedComponentsValidator<>();
-    Loader<UnsignedShortType, NativeBoolType> loader = new BioFormatsLoader(log, validator);
+    boolean computeAllFeatures = features.size() == 0;
+    FeatureVectorFactory<T, S> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
+
+    Validator<T, S> validator = new ConnectedComponentsValidator<>();
+
+    Loader<T, S> loader = new BioFormatsLoader<>(log, validator);
     for (String channel : channels.split(",")) {
       loader.addChannel(Integer.parseInt(channel));
     }
@@ -151,9 +182,11 @@ public class FeatureApp implements Command {
     } catch (IOException e) {
       System.err.println("Unknown file");
       e.printStackTrace();
+      return;
     } catch (FormatException e) {
       System.err.println("Unknown format");
       e.printStackTrace();
+      return;
     }
 
     int queueCapacity = 50000;
@@ -162,12 +195,10 @@ public class FeatureApp implements Command {
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
 
-    FeatureVectorFactory<UnsignedShortType, NativeBoolType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
-
     Thread producer = new Thread(() -> {
       boolean submitted;
       while(loader.hasNext()) {
-        Image<UnsignedShortType, NativeBoolType> image = loader.next();
+        Image<T, S> image = loader.next();
 
         if (image != null) {
           submitted = false;
@@ -209,7 +240,7 @@ public class FeatureApp implements Command {
     writer.start();
 
     try {
-      producer.join();
+      producer.join(); // wait for the producer to put all images on the task queue
       int producerCount = counter.get();
       log.info("PRODUCER COUNT " + producerCount);
       log.info("Validator flagged " + validator.getInvalidCount() + " images");
@@ -219,6 +250,11 @@ public class FeatureApp implements Command {
       log.info("Task producer finished after " + execTime + "s");
 
       if (writer.isAlive()) {
+        /*
+         * Ask the writer continuously how many vectors it has written.
+         * Once it has handled as many vectors as the producer has produced tasks
+         * the writer is interrupted.
+         */
         synchronized (writer.getHandled()) {
           while(producerCount != writer.getHandled().get()) {
             writer.getHandled().wait();

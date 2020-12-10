@@ -1,21 +1,18 @@
 package be.maximl.data.bf;
 
 import be.maximl.data.Image;
+import ij.process.ImageProcessor;
 import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
-import net.imglib2.img.array.ArrayImg;
-import net.imglib2.img.array.ArrayImgFactory;
-import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.img.basictypeaccess.array.BooleanArray;
-import net.imglib2.img.basictypeaccess.array.ShortArray;
+import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.roi.MaskInterval;
 import net.imglib2.roi.Masks;
-import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.type.BooleanType;
+import net.imglib2.type.numeric.RealType;
 import net.imglib2.view.Views;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -24,7 +21,7 @@ import java.util.List;
  * 
  * @author jgp
  */
-public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType> {
+public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> implements Image<T, S> {
   private static final long serialVersionUID = -2589804417011601051L;
 
   final private static int CHANNELDIM = 2;
@@ -34,10 +31,8 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   private String filename;
   private long size;
   private List<Integer> channels;
-  private short[] planes;
-  private ArrayImg<UnsignedShortType, ShortArray> img;
-  private ArrayImg<NativeBoolType, BooleanArray> maskImg;
-  private boolean[] masks;
+  private Img<T> img;
+  private Img<S> maskImg;
   final private long[] dims = new long[3];
   final private int id;
 
@@ -51,20 +46,13 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   }
 
   @Override
-  public short[] getPlanes() {
-    return planes;
+  public void setPlanes(Img<T> planes) {
+    img = planes;
   }
 
   @Override
-  public void setPlanes(short[] planes) {
-    this.planes = planes;
-    img =  ArrayImgs.unsignedShorts(planes, getDimensions());
-  }
-
-  @Override
-  public void setMasks(boolean[] masks) {
-    this.masks = masks;
-    maskImg = ArrayImgs.booleans(masks, getDimensions());
+  public void setMasks(Img<S> masks) {
+    maskImg = masks;
   }
 
   @Override
@@ -79,17 +67,17 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   }
 
   @Override
-  public RandomAccessibleInterval<UnsignedShortType> getImg() {
+  public RandomAccessibleInterval<T> getRAI() {
     return img;
   }
 
-  private ArrayImg<NativeBoolType, BooleanArray> getMaskImg() {
+  private Img<S> getMaskImg() {
     return maskImg;
   }
 
   @Override
-  public ImgFactory<UnsignedShortType> getFactory() {
-    return new ArrayImgFactory<>(new UnsignedShortType());
+  public ImgFactory<T> getFactory() {
+    return img.factory();
   }
 
   @Override
@@ -98,14 +86,13 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   }
 
   @Override
-  public IterableInterval<NativeBoolType> getMaskAsIterableInterval(int pos) {
+  public IterableInterval<S> getMaskAsIterableInterval(int pos) {
     return Views.hyperSlice(getMaskImg(), 2, pos);
   }
 
   @Override
-  public boolean[] getMaskAsBooleanArray(int i) {
-    int planeSize = (int) (getDimensions()[0] * getDimensions()[1]);
-    return Arrays.copyOfRange(masks, i*planeSize, (i+1)*planeSize);
+  public ImageProcessor getMaskAsImageProcessor(int i) {
+    return ImageJFunctions.wrap(getMaskImg(), "test").getProcessor();
   }
 
   /**

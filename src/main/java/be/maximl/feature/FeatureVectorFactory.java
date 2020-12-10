@@ -19,6 +19,7 @@ import net.imglib2.roi.MaskInterval;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
+import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.view.Views;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.Double.NaN;
 
-public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>> {
+public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S>> {
 
     final private OpService opService;
     final private LogService logService;
@@ -239,7 +240,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
         vec.add("directory", img.getDirectory());
         vec.add("id", img.getId());
 
-        RandomAccessibleInterval<T> libImg = img.getImg();
+        RandomAccessibleInterval<T> libImg = img.getRAI();
         ImgFactory<T> factory = img.getFactory();
 
         IterableInterval<T> maskedSlice;
