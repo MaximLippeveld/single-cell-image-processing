@@ -84,6 +84,16 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
         iFuncAdder.accept("kurtosis", s -> opService.stats().kurtosis(s).getRealDouble());
         iFuncAdder.accept("skewness", s -> opService.stats().skewness(s).getRealDouble());
         iFuncAdder.accept("moment3AboutMean", s -> opService.stats().moment3AboutMean(s).getRealDouble());
+        iFuncAdder.accept("mad", s -> {
+            double mean = opService.stats().mean(s).getRealDouble();
+            double distSum = .0;
+            double count = 0;
+            for (T t : s) {
+                count++;
+                distSum += Math.abs(t.getRealDouble() - mean);
+            }
+            return distSum / count;
+        });
 
         // texture
         HaralickNamespace haralick = opService.haralick();

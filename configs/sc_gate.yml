@@ -1,12 +1,7 @@
 features:
   - size
   - mean
-  - sobelRMS
-  - gradientRMS:1
-  - gradientRMS:2
-  - gradientRMS:4
-  - gradientRMS:8
-  - roundness
-  - eccentricity
+  - mad
+  - stdDev
 files:
   - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T0_49.cif
