@@ -2,140 +2,158 @@ package be.maximl.data.bf;
 
 import be.maximl.data.*;
 import be.maximl.data.validators.Validator;
-import io.scif.FormatException;
-import io.scif.Plane;
-import io.scif.Reader;
-import io.scif.SCIFIO;
+import io.scif.*;
+import io.scif.config.SCIFIOConfig;
+import io.scif.filters.ReaderFilter;
+import io.scif.img.IO;
+import io.scif.img.ImageRegion;
+import io.scif.img.Range;
+import io.scif.img.SCIFIOImgPlus;
+import io.scif.img.cell.SCIFIOCellImgFactory;
+import net.imagej.axis.Axes;
+import net.imagej.axis.AxisType;
+import net.imglib2.*;
 import net.imglib2.img.Img;
-import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.type.BooleanType;
+import net.imglib2.img.ImgFactory;
+import net.imglib2.img.array.ArrayImgFactory;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
+import net.imglib2.type.numeric.integer.ByteType;
 import org.scijava.io.location.FileLocation;
 import org.scijava.log.LogService;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
+import java.util.stream.IntStream;
 
-
-public class BioFormatsLoader<T extends RealType<T>, S extends BooleanType<S>> implements Loader<T, S> {
-  private static final long serialVersionUID = 4598175080399877334L;
+public class BioFormatsLoader<T extends NativeType<T> & RealType<T>> implements Loader<T> {
   private final LogService log;
   private Iterator<File> lister;
-  final private ArrayList<Integer> channels = new ArrayList<>();
-  final private SCIFIO scifio = new SCIFIO();
-  final private Validator<T, S> validator;
+  final private List<Long> channels;
+  final private SCIFIO scifio;
+  final private Validator<T> validator;
   private int imageLimit = -1;
 
   private Reader currentReader;
   private int currentFinalIndex;
   private int currentIndex = 0;
 
-  public BioFormatsLoader(LogService log, Validator<T, S> validator) {
-    this.log = log;
-    this.validator = validator;
+  final private ImgFactory<T> imageFactory;
+  final private ImgFactory<NativeBoolType> maskFactory;
+
+  private Iterator<SCIFIOImgPlus<NativeBoolType>> maskIterator;
+  private Iterator<SCIFIOImgPlus<T>> imageIterator;
+
+  /**
+   * Prevents SCIFIO's ImgOpener.openImgs method from closing the reader after reading in an image.
+   * Closing the reader is handled by the us.
+   */
+  public static class CloseNoOpReader extends ReaderFilter {
+
+    /**
+     * @param r - Reader to be wrapped
+     */
+    public CloseNoOpReader(Reader r) {
+      super(r);
+    }
+
+    @Override
+    public void close() {
+      return;
+    }
   }
 
-  @Override
-  public Image<T, S> imageFromReader(Reader reader, int index) throws IOException, FormatException {
+  public BioFormatsLoader(LogService log, List<Long> channels, SCIFIO scifio, Validator<T> validator, T imageType) {
+    this.log = log;
+    this.channels = channels;
+    this.validator = validator;
+    this.scifio = scifio;
 
-    int imgIndex;
-    int maskIndex;
-    int pointsInPlane;
-    Plane imgPlane;
-    Plane maskPlane;
-    short[] flatData;
-    boolean[] maskData;
-    short[] planeTmp;
-    Image<T, S> image;
+    imageFactory = new ArrayImgFactory<>(imageType);
+    maskFactory = new ArrayImgFactory<>(new NativeBoolType());
+  }
 
-    imgIndex = index;
-    maskIndex = index+1;
-
-    image = new BioFormatsImage<>(imgIndex/2);
+  private Image<T> createImage(Reader reader, int id, Img<T> planes, Img<NativeBoolType> mask) {
+    Image<T> image = new BioFormatsImage<>(id);
     image.setDirectory(reader.getMetadata().getSourceLocation().getURI().getPath());
     image.setFilename(reader.getMetadata().getSourceLocation().getName());
     image.setExtension(reader.getFormatName());
     image.setChannels(channels);
+    image.setAxesLengths(planes.dimensionsAsLongArray());
 
-    imgPlane = reader.openPlane(imgIndex, channels.get(0));
-    image.setPlaneLengths(imgPlane.getLengths());
-    image.setSize(imgPlane.getBytes().length * channels.size());
-
-    pointsInPlane = imgPlane.getBytes().length / 2;
-
-    flatData = new short[channels.size()*pointsInPlane];
-    planeTmp = new short[pointsInPlane];
-    maskData = new boolean[channels.size()*pointsInPlane];
-
-    for (int j = 0; j<channels.size(); j++) {
-
-      maskPlane = reader.openPlane(maskIndex, channels.get(j));
-      for (int k = 0; k<pointsInPlane; k++) {
-        maskData[k+j*pointsInPlane] = maskPlane.getBytes()[k] > 0;
-      }
-
-      if (j > 0) {
-        // the plane at j=0 was already loaded in
-        imgPlane = reader.openPlane(imgIndex, channels.get(j));
-      }
-      ByteBuffer.wrap(imgPlane.getBytes()).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(planeTmp);
-      System.arraycopy(planeTmp, 0, flatData, j * pointsInPlane, pointsInPlane);
-    }
-
-    image.setPlanes((Img<T>) ArrayImgs.unsignedShorts(flatData, image.getDimensions()));
-    image.setMasks((Img<S>) ArrayImgs.booleans(maskData, image.getDimensions()));
+    image.setMasks(mask);
+    image.setPlanes(planes);
 
     return image;
   }
 
-  @Override
-  public void addChannel(int channel) {
-    this.channels.add(channel);
+  private <U extends RealType<U>> Iterator<SCIFIOImgPlus<U>> getIterator(Iterator<Integer> indices, ImgFactory<U> factory) {
+
+    SCIFIOConfig config = new SCIFIOConfig();
+    config.imgOpenerSetOpenAllImages(false);
+    config.imgOpenerSetRegion(
+            new ImageRegion(new AxisType[]{Axes.CHANNEL}, new Range(channels.stream().mapToLong(l -> l).toArray())));
+
+    CloseNoOpReader noOpreader = new CloseNoOpReader(currentReader);
+
+    return new Iterator<SCIFIOImgPlus<U>>() {
+      @Override
+      public boolean hasNext() {
+        return indices.hasNext();
+      }
+
+      @Override
+      public SCIFIOImgPlus<U> next() {
+        int imgIndex = indices.next();
+        config.imgOpenerSetIndex(imgIndex);
+        return IO.open(noOpreader, factory.type(), factory, config);
+      }
+    };
   }
 
-  @Override
-  public void setImageLimit(int imageLimit) {
-    this.imageLimit = imageLimit;
-  }
-
-  @Override
-  public void setStartIndex(int index) {
-    this.currentIndex = index*2;
+  private void initializeNewReader() throws IOException, FormatException {
+    currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
+    currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
+    imageIterator = getIterator(
+            IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 != 0).iterator(), imageFactory);
+    maskIterator = getIterator(
+            IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 == 0).iterator(), maskFactory);
   }
 
   @Override
   public void setLister(
           FileLister lister) throws IOException, FormatException {
     this.lister = lister.getFiles().iterator();
-    currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
-    currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
+    initializeNewReader();
   }
 
   @Override
   public boolean hasNext() {
-    return currentIndex < currentFinalIndex;
+    return imageIterator.hasNext();
   }
 
   @Override
-  public Image<T, S> next() {
+  public Image<T> next() {
 
     try {
-      Image<T, S> image = imageFromReader(currentReader, currentIndex);
-      currentIndex += 2;
+      SCIFIOImgPlus<NativeBoolType> mask = maskIterator.next();
+      SCIFIOImgPlus<T> planes = imageIterator.next();
 
-      if (currentIndex >= currentFinalIndex) {
-        if (lister.hasNext()) {
-          currentIndex = 0;
+      Image<T> image = createImage(currentReader, currentIndex, planes, mask);
+      currentIndex++;
 
-          // initialize new reader
-          FileLocation loc = new FileLocation(lister.next());
-          currentReader = scifio.initializer().initializeReader(loc);
-          currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
-        }
+      if (!imageIterator.hasNext() & lister.hasNext()) {
+        currentIndex = 0;
+
+        // close current reader
+        currentReader.close();
+
+        // initialize new reader
+        initializeNewReader();
       }
 
       boolean valid = validator.validate(image);
@@ -151,6 +169,21 @@ public class BioFormatsLoader<T extends RealType<T>, S extends BooleanType<S>> i
     }
 
     return null;
+  }
+
+  @Override
+  public void addChannel(Long channel) {
+    this.channels.add(channel);
+  }
+
+  @Override
+  public void setImageLimit(int imageLimit) {
+    this.imageLimit = imageLimit;
+  }
+
+  @Override
+  public void setStartIndex(int index) {
+    this.currentIndex = index;
   }
 
 }

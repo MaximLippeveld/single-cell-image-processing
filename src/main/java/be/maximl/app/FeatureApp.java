@@ -1,10 +1,7 @@
 package be.maximl.app;
 
-import be.maximl.data.FileLister;
-import be.maximl.data.Image;
-import be.maximl.data.Loader;
+import be.maximl.data.*;
 import be.maximl.data.bf.BioFormatsLoader;
-import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import be.maximl.data.validators.Validator;
 import be.maximl.feature.FeatureVectorFactory;
@@ -14,11 +11,9 @@ import be.maximl.output.SQLiteWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.scif.FormatException;
+import io.scif.SCIFIO;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
-import net.imglib2.type.BooleanType;
-import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
@@ -34,6 +29,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 
 /**
@@ -41,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * ImageJ plugin or as a standalone package through a CLI interface.
  */
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
-public class FeatureApp<T extends RealType<T>, S extends BooleanType<S>> implements Command {
+public class FeatureApp implements Command {
 
   private static final String IMAGELIMIT_DESC = "Maximum number of images to load (-1 loads all images).";
   private static final String INPUTDIR_DESC = "Directory containing input files.";
@@ -86,6 +82,9 @@ public class FeatureApp<T extends RealType<T>, S extends BooleanType<S>> impleme
 
   @Parameter
   private LogService log;
+
+  @Parameter
+  private SCIFIO scifio;
 
   @Parameter(label="Channels", description=FeatureApp.CHANNELS_DESC, persist = false)
   private String channels;
@@ -167,14 +166,19 @@ public class FeatureApp<T extends RealType<T>, S extends BooleanType<S>> impleme
     }
 
     boolean computeAllFeatures = features.size() == 0;
-    FeatureVectorFactory<T, S> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
+    int queueCapacity = 50000;
+    BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(queueCapacity);
+    ExecutorService executor = new ThreadPoolExecutor(executorPoolSize, executorPoolSize, 1000, TimeUnit.MILLISECONDS, queue);
+    CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
+    AtomicInteger counter = new AtomicInteger(0);
+    List<Long> longChannels = Arrays.stream(channels.split(",")).map(Long::parseLong).collect(Collectors.toList());
 
-    Validator<T, S> validator = new ConnectedComponentsValidator<>();
-
-    Loader<T, S> loader = new BioFormatsLoader<>(log, validator);
-    for (String channel : channels.split(",")) {
-      loader.addChannel(Integer.parseInt(channel));
-    }
+    // START type-specific code
+    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
+    Validator<UnsignedShortType> validator = new ConnectedComponentsValidator<>();
+    Loader<UnsignedShortType> loader = new BioFormatsLoader<>(log, longChannels, scifio, validator, new UnsignedShortType());
+    Producer<UnsignedShortType> producer = new Producer<>(loader, completionService, factory, counter);
+    // END type-specific code
 
     loader.setImageLimit(imageLimit);
     try {
@@ -189,42 +193,10 @@ public class FeatureApp<T extends RealType<T>, S extends BooleanType<S>> impleme
       return;
     }
 
-    int queueCapacity = 50000;
-    BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(queueCapacity);
-    ExecutorService executor = new ThreadPoolExecutor(executorPoolSize, executorPoolSize, 1000, TimeUnit.MILLISECONDS, queue);
-    CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
-    AtomicInteger counter = new AtomicInteger(0);
-
-    Thread producer = new Thread(() -> {
-      boolean submitted;
-      while(loader.hasNext()) {
-        Image<T, S> image = loader.next();
-
-        if (image != null) {
-          submitted = false;
-
-          while(!submitted) {
-            try {
-              completionService.submit(() -> factory.computeVector(image));
-              counter.incrementAndGet();
-              submitted = true;
-            } catch (RejectedExecutionException e) {
-              try {
-                synchronized (completionService) {
-                  completionService.wait();
-                }
-              } catch (InterruptedException ignored) { }
-            }
-          }
-        }
-      }
-    });
-
     final long startTime = System.currentTimeMillis();
     producer.start();
 
     File output = new File(outputDirectory, outputFilename);
-
     FeatureVecWriter writer;
     switch (FilenameUtils.getExtension(outputFilename)) {
       case "sqlite3":

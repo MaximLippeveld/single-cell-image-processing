@@ -9,7 +9,8 @@ import net.imglib2.img.ImgFactory;
 import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.roi.MaskInterval;
 import net.imglib2.roi.Masks;
-import net.imglib2.type.BooleanType;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.view.Views;
 
@@ -21,7 +22,7 @@ import java.util.List;
  * 
  * @author jgp
  */
-public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> implements Image<T, S> {
+public class BioFormatsImage<T extends NativeType<T> & RealType<T>> implements Image<T> {
   private static final long serialVersionUID = -2589804417011601051L;
 
   final private static int CHANNELDIM = 2;
@@ -30,10 +31,10 @@ public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> im
   private String extension;
   private String filename;
   private long size;
-  private List<Integer> channels;
+  private List<Long> channels;
   private Img<T> img;
-  private Img<S> maskImg;
-  final private long[] dims = new long[3];
+  private Img<NativeBoolType> maskImg;
+  private long[] dims;
   final private int id;
 
   public BioFormatsImage(int id) {
@@ -51,14 +52,13 @@ public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> im
   }
 
   @Override
-  public void setMasks(Img<S> masks) {
+  public void setMasks(Img<NativeBoolType> masks) {
     maskImg = masks;
   }
 
   @Override
-  public void setPlaneLengths(long[] planeLengths) {
-    dims[0] = planeLengths[0];
-    dims[1] = planeLengths[1];
+  public void setAxesLengths(long[] planeLengths) {
+    this.dims = planeLengths;
   }
 
   @Override
@@ -71,7 +71,7 @@ public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> im
     return img;
   }
 
-  private Img<S> getMaskImg() {
+  private Img<NativeBoolType> getMaskImg() {
     return maskImg;
   }
 
@@ -86,7 +86,7 @@ public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> im
   }
 
   @Override
-  public IterableInterval<S> getMaskAsIterableInterval(int pos) {
+  public IterableInterval<NativeBoolType> getMaskAsIterableInterval(int pos) {
     return Views.hyperSlice(getMaskImg(), 2, pos);
   }
 
@@ -120,23 +120,15 @@ public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> im
     return filename;
   }
 
-  /**
-   * @return the size
-   */
-  @Override
-  public long getSize() {
-    return size;
-  }
 
   @Override
-  public List<Integer> getChannels() {
+  public List<Long> getChannels() {
     return channels;
   }
 
   @Override
-  public void setChannels(List<Integer> channels) {
+  public void setChannels(List<Long> channels) {
     this.channels = channels;
-    dims[2] = channels.size();
   }
 
 
@@ -166,16 +158,6 @@ public class BioFormatsImage<T extends RealType<T>, S extends BooleanType<S>> im
   @Override
   public void setFilename(String filename) {
     this.filename = filename;
-  }
-
-
-  /**
-   * @param size
-   *          the size to set
-   */
-  @Override
-  public void setSize(long size) {
-    this.size = size;
   }
 
 }

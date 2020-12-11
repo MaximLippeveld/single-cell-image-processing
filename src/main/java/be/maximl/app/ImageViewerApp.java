@@ -6,18 +6,33 @@ import be.maximl.data.bf.BioFormatsLoader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import io.scif.FormatException;
+import io.scif.config.SCIFIOConfig;
+import io.scif.filters.ReaderFilter;
+import io.scif.img.IO;
+import io.scif.img.ImageRegion;
+import io.scif.img.Range;
+import io.scif.img.SCIFIOImgPlus;
+import io.scif.img.cell.SCIFIOCellImgFactory;
+import jdk.jfr.Unsigned;
 import net.imagej.ImageJ;
+import net.imagej.axis.Axes;
+import net.imagej.axis.AxisType;
 import net.imagej.display.ImageDisplay;
 import net.imagej.overlay.*;
 import net.imglib2.*;
 import net.imglib2.img.Img;
+import net.imglib2.img.ImgFactory;
 import net.imglib2.img.ImgView;
+import net.imglib2.img.array.ArrayImgFactory;
+import net.imglib2.img.cell.CellImgFactory;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.logic.NativeBoolType;
+import net.imglib2.type.numeric.integer.ByteType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
+import org.scijava.io.location.FileLocation;
 import org.scijava.util.Colors;
 
 import java.io.IOException;
@@ -27,13 +42,13 @@ import java.util.List;
 
 public class ImageViewerApp {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, FormatException {
 
         ImageJ ij = new ImageJ();
 
         // Import directory
-//        String importDirectory = "/home/maximl/Data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/";
-        String importDirectory = "/home/maximl/Data/Experiment_data/newcastle/wbc/focused";
+//        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T5_69.cif";
+        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/";
 
         // read the data
         final long startTime = System.currentTimeMillis();
@@ -43,11 +58,8 @@ public class ImageViewerApp {
         lister.setPath(importDirectory);
         lister.addExtension("cif");
 
-        ConnectedComponentsValidator<UnsignedShortType, NativeBoolType> validator = new ConnectedComponentsValidator<>();
-        Loader<UnsignedShortType, NativeBoolType> relation = new BioFormatsLoader(ij.log(), validator);
-        for (int i=0;i<3;i++) {
-            relation.addChannel(i);
-        }
+        ConnectedComponentsValidator<UnsignedShortType> validator = new ConnectedComponentsValidator<>();
+        Loader<UnsignedShortType> relation = new BioFormatsLoader<>(ij.log(), Arrays.asList(0L, 5L, 8L), ij.scifio(), validator, new UnsignedShortType());
         relation.setImageLimit(-1);
         try {
             relation.setLister(lister);
@@ -59,13 +71,29 @@ public class ImageViewerApp {
             e.printStackTrace();
         }
 
-        relation.setStartIndex(17111);
+//        relation.setStartIndex(17111);
 
-        Image<UnsignedShortType, NativeBoolType> img = relation.next();
+        Image<UnsignedShortType> img = relation.next();
+
+        ImgFactory<NativeBoolType> factory = new ArrayImgFactory<>(new NativeBoolType());
+        Img<NativeBoolType> maskImg = factory.create(img.getDimensions()[0], img.getDimensions()[1]);
+        Cursor<NativeBoolType> maskCursor = img.getMaskAsIterableInterval(0).localizingCursor();
+        RandomAccess<NativeBoolType> racc = maskImg.randomAccess();
+        long[] pos = new long[2];
+        while (maskCursor.hasNext()) {
+            maskCursor.fwd();
+            maskCursor.localize(pos);
+            racc.setPosition(pos);
+            if (maskCursor.get().get()){
+                ij.log().info("get");
+            }
+            racc.get().set(maskCursor.get());
+        }
+        ij.ui().show(maskImg);
 
         IterableInterval<UnsignedShortType> it = Regions.sample(img.getMaskInterval(0), Views.hyperSlice(img.getRAI(), 2, 0));
         Img<UnsignedShortType> it2img = ij.op().create().img(it);
-        RandomAccess<UnsignedShortType> racc = it2img.randomAccess();
+        RandomAccess<UnsignedShortType> racc2 = it2img.randomAccess();
 
         int counter = 0;
         int sum = 0;
@@ -76,8 +104,8 @@ public class ImageViewerApp {
             if(t.get() > 0) {
                 counter++;
                 sum += t.get();
-                racc.setPosition(cursor);
-                racc.get().set(t.get());
+                racc2.setPosition(cursor);
+                racc2.get().set(t.get());
             }
         }
         ij.log().info("COUNT " + counter + " SUM " + sum);

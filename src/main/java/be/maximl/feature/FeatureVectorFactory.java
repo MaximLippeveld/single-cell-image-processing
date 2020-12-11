@@ -21,7 +21,9 @@ import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
+import net.imglib2.type.numeric.integer.ByteType;
 import net.imglib2.view.Views;
 import org.scijava.log.LogService;
 
@@ -32,13 +34,13 @@ import java.util.stream.Collectors;
 
 import static java.lang.Double.NaN;
 
-public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S>> {
+public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
 
     final private OpService opService;
     final private LogService logService;
     final private Map<String, Function<Iterable<T>, Double>> iFeatureFunctions = new HashMap<>();
     final private Map<String, Function<IterableInterval<T>, Double>> iiFeatureFunctions = new HashMap<>();
-    final private Map<String, Function<IterableInterval<S>, Double>> iiMaskFeatureFunctions = new HashMap<>();
+    final private Map<String, Function<IterableInterval<NativeBoolType>, Double>> iiMaskFeatureFunctions = new HashMap<>();
     final private Map<String, Function<Polygon2D, Double>> pFeatureFunctions = new HashMap<>();
     final private Map<String, Function<RandomAccessibleInterval<T>, Double>> raiFeatureFunctions = new HashMap<>();
     final private Map<String, Function<ImageProcessor, Double>> ipFeatureFunctions = new HashMap<>();
@@ -68,7 +70,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S
 
         BiConsumer<String, Function<Iterable<T>, Double>> iFuncAdder = addFunc(iFeatureFunctions);
         BiConsumer<String, Function<IterableInterval<T>, Double>> iiFuncAdder = addFunc(iiFeatureFunctions);
-        BiConsumer<String, Function<IterableInterval<S>, Double>> iiMaskFuncAdder = addFunc(iiMaskFeatureFunctions);
+        BiConsumer<String, Function<IterableInterval<NativeBoolType>, Double>> iiMaskFuncAdder = addFunc(iiMaskFeatureFunctions);
         BiConsumer<String, Function<Polygon2D, Double>> pFuncAdder = addFunc(pFeatureFunctions);
         BiConsumer<String, Function<RandomAccessibleInterval<T>, Double>> raiFuncAdder = addFunc(raiFeatureFunctions);
         BiConsumer<String, Function<ImageProcessor, Double>> ipFuncAdder = addFunc(ipFeatureFunctions);
@@ -187,7 +189,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S
     public static class FeatureVector {
         private final Map<String, Object> map = new HashMap<>();
 
-        public void add(String key, int channel, double value) {
+        public void add(String key, Long channel, double value) {
             map.put("feat_"+ key + "_" + channel, value);
         }
 
@@ -219,11 +221,11 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S
             return res;
         }
 
-        public <S> void computeFeature(
+        public <U> void computeFeature(
                 String key,
-                int channel,
-                Function<S, Double> func,
-                S slice,
+                Long channel,
+                Function<U, Double> func,
+                U slice,
                 boolean compute) {
             if(compute) {
                 add(key, channel, func.apply(slice));
@@ -233,7 +235,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S
         }
     }
 
-    public FeatureVector computeVector(Image<T,S> img) {
+    public FeatureVector computeVector(Image<T> img) {
 
         FeatureVector vec = new FeatureVector();
         vec.add("file", img.getFilename());
@@ -245,7 +247,7 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S
 
         IterableInterval<T> maskedSlice;
         MaskInterval sliceMask;
-        Integer channel;
+        Long channel;
         boolean compute;
         for (int i = 0; i<img.getChannels().size(); i++) {
 
@@ -268,8 +270,8 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends BooleanType<S
                 vec.computeFeature(entry.getKey(), channel, entry.getValue(), polygon, compute);
             }
 
-            IterableInterval<S> iiMask = img.getMaskAsIterableInterval(i);
-            for(Map.Entry<String, Function<IterableInterval<S>, Double>> entry : iiMaskFeatureFunctions.entrySet()) {
+            IterableInterval<NativeBoolType> iiMask = img.getMaskAsIterableInterval(i);
+            for(Map.Entry<String, Function<IterableInterval<NativeBoolType>, Double>> entry : iiMaskFeatureFunctions.entrySet()) {
                 vec.computeFeature(entry.getKey(), channel, entry.getValue(), iiMask, compute);
             }
 

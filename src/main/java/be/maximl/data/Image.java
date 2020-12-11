@@ -1,18 +1,16 @@
 package be.maximl.data;
 
 import ij.process.ImageProcessor;
+import net.imglib2.Interval;
 import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
-import net.imglib2.img.array.ArrayImg;
-import net.imglib2.img.basictypeaccess.array.BooleanArray;
 import net.imglib2.roi.MaskInterval;
-import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.RealType;
-import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.type.numeric.integer.ByteType;
+import net.imglib2.view.IntervalView;
 
 import java.io.Serializable;
 import java.util.List;
@@ -21,9 +19,8 @@ import java.util.List;
  * Wrapper class which holds image-data to be processed.
  *
  * @param <T>
- * @param <S>
  */
-public interface Image<T extends RealType<T>, S extends BooleanType<S>> extends Serializable {
+public interface Image<T extends NativeType<T>> extends Serializable {
 
     /**
      * @return unique identifier
@@ -32,9 +29,9 @@ public interface Image<T extends RealType<T>, S extends BooleanType<S>> extends 
 
     void setPlanes(Img<T> planes);
 
-    void setMasks(Img<S> masks);
+    void setMasks(Img<NativeBoolType> masks);
 
-    void setPlaneLengths(long[] planeLengths);
+    void setAxesLengths (long[] axesLengths);
 
     RandomAccessibleInterval<T> getRAI();
 
@@ -42,7 +39,7 @@ public interface Image<T extends RealType<T>, S extends BooleanType<S>> extends 
 
     MaskInterval getMaskInterval(int pos);
 
-    IterableInterval<S> getMaskAsIterableInterval(int pos);
+    IterableInterval<NativeBoolType> getMaskAsIterableInterval(int pos);
 
     String getDirectory();
 
@@ -50,19 +47,15 @@ public interface Image<T extends RealType<T>, S extends BooleanType<S>> extends 
 
     String getFilename();
 
-    long getSize();
+    List<Long> getChannels();
 
-    List<Integer> getChannels();
-
-    void setChannels(List<Integer> channels);
+    void setChannels(List<Long> channels);
 
     void setDirectory(String directory);
 
     void setExtension(String extension);
 
     void setFilename(String filename);
-
-    void setSize(long size);
 
     ImageProcessor getMaskAsImageProcessor(int i);
 

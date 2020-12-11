@@ -8,19 +8,18 @@ import inra.ijpb.binary.conncomp.ConnectedComponentsLabeling;
 import inra.ijpb.binary.conncomp.FloodFillComponentsLabeling;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
-import net.imglib2.type.numeric.RealType;
 
 import java.util.ArrayList;
 import java.util.List;
 
 
-public class ConnectedComponentsValidator<T extends RealType<T>, S extends BooleanType<S>> implements Validator<T,S> {
+public class ConnectedComponentsValidator<T extends NativeType<T>> implements Validator<T> {
 
     private int invalid = 0;
     final private List<Integer> invalidList = new ArrayList<>();
 
     @Override
-    public boolean validate(Image<T,S> image) {
+    public boolean validate(Image<T> image) {
         ConnectedComponentsLabeling labeling = new FloodFillComponentsLabeling(1, 8);
 
         for (int i = 0; i<image.getChannels().size(); i++) {
