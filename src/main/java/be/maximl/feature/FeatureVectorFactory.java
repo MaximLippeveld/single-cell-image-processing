@@ -174,6 +174,9 @@ public class FeatureVectorFactory<T extends RealType<T>, S extends NativeType<S>
         pFuncAdder.accept("convexity", s -> opService.geom().convexity(s).getRealDouble());
         pFuncAdder.accept("size", s -> opService.geom().size(s).getRealDouble());
         pFuncAdder.accept("sizeConvexHull", s -> opService.geom().sizeConvexHull(s).getRealDouble());
+        pFuncAdder.accept("majorAxis", s -> opService.geom().majorAxis(s).getRealDouble());
+        pFuncAdder.accept("minorAxis", s -> opService.geom().minorAxis(s).getRealDouble());
+        pFuncAdder.accept("mainElongation", s -> opService.geom().mainElongation(s).getRealDouble());
 
         iiMaskFuncAdder.accept("sizeMask", s -> opService.geom().size(s).getRealDouble());
 
