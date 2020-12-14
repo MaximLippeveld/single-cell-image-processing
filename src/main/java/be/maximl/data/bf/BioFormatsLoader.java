@@ -9,10 +9,8 @@ import io.scif.img.IO;
 import io.scif.img.ImageRegion;
 import io.scif.img.Range;
 import io.scif.img.SCIFIOImgPlus;
-import io.scif.img.cell.SCIFIOCellImgFactory;
 import net.imagej.axis.Axes;
 import net.imagej.axis.AxisType;
-import net.imglib2.*;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImgFactory;
@@ -39,7 +37,6 @@ public class BioFormatsLoader<T extends NativeType<T> & RealType<T>> implements 
   private int imageLimit = -1;
 
   private Reader currentReader;
-  private int currentFinalIndex;
   private int currentIndex = 0;
 
   final private ImgFactory<T> imageFactory;
@@ -49,7 +46,7 @@ public class BioFormatsLoader<T extends NativeType<T> & RealType<T>> implements 
   private Iterator<SCIFIOImgPlus<T>> imageIterator;
 
   /**
-   * Prevents SCIFIO's ImgOpener.openImgs method from closing the reader after reading in an image.
+   * Wrapper that prevents SCIFIO's ImgOpener.openImgs method from closing the reader after reading in an image.
    * Closing the reader is handled by the us.
    */
   public static class CloseNoOpReader extends ReaderFilter {
@@ -63,7 +60,6 @@ public class BioFormatsLoader<T extends NativeType<T> & RealType<T>> implements 
 
     @Override
     public void close() {
-      return;
     }
   }
 
@@ -116,12 +112,13 @@ public class BioFormatsLoader<T extends NativeType<T> & RealType<T>> implements 
   }
 
   private void initializeNewReader() throws IOException, FormatException {
+    currentIndex = 0;
     currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
-    currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
+    int currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
     imageIterator = getIterator(
-            IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 != 0).iterator(), imageFactory);
+            IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 == 0).iterator(), imageFactory);
     maskIterator = getIterator(
-            IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 == 0).iterator(), maskFactory);
+            IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 != 0).iterator(), maskFactory);
   }
 
   @Override
@@ -147,8 +144,6 @@ public class BioFormatsLoader<T extends NativeType<T> & RealType<T>> implements 
       currentIndex++;
 
       if (!imageIterator.hasNext() & lister.hasNext()) {
-        currentIndex = 0;
-
         // close current reader
         currentReader.close();
 

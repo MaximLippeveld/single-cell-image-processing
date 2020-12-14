@@ -84,9 +84,6 @@ public class ImageViewerApp {
             maskCursor.fwd();
             maskCursor.localize(pos);
             racc.setPosition(pos);
-            if (maskCursor.get().get()){
-                ij.log().info("get");
-            }
             racc.get().set(maskCursor.get());
         }
         ij.ui().show(maskImg);
