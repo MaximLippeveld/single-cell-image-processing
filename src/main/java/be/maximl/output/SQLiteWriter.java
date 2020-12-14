@@ -43,7 +43,7 @@ public class SQLiteWriter extends FeatureVecWriter {
             sql.append(entry.getKey());
             sql.append(" ");
 
-            if(entry.getKey().equals("meta:id")) {
+            if(entry.getKey().equals("meta_id")) {
                 sql.append("PRIMARY KEY ");
             }
 
