@@ -64,17 +64,12 @@ public class SQLiteWriter extends FeatureVecWriter {
             sql.append(entry.getKey());
             sql.append(" ");
 
-            if(entry.getKey().equals("meta_id")) {
-                sql.append("PRIMARY KEY ");
-            }
-
             int type = JdbcTypeJavaClassMappings.INSTANCE.determineJdbcTypeCodeForJavaClass(entry.getValue().getClass());
             sql.append(JDBCType.values()[type]);
 
-            if (it.hasNext()) {
-                sql.append(",");
-            }
+            sql.append(",");
         }
+        sql.append("CONSTRAINT PK_data PRIMARY KEY (meta_id,meta_file)");
         sql.append(")");
 
         Statement statement = connection.createStatement();
