@@ -1,3 +1,24 @@
+/*-
+ * #%L
+ * SCIP: Single-cell image processing
+ * %%
+ * Copyright (C) 2020 Maxim Lippeveld
+ * %%
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * #L%
+ */
 package be.maximl.feature;
 
 import be.maximl.data.Image;
@@ -177,6 +198,9 @@ public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
         pFuncAdder.accept("convexity", s -> opService.geom().convexity(s).getRealDouble());
         pFuncAdder.accept("size", s -> opService.geom().size(s).getRealDouble());
         pFuncAdder.accept("sizeConvexHull", s -> opService.geom().sizeConvexHull(s).getRealDouble());
+        pFuncAdder.accept("majorAxis", s -> opService.geom().majorAxis(s).getRealDouble());
+        pFuncAdder.accept("minorAxis", s -> opService.geom().minorAxis(s).getRealDouble());
+        pFuncAdder.accept("mainElongation", s -> opService.geom().mainElongation(s).getRealDouble());
 
         iiMaskFuncAdder.accept("sizeMask", s -> opService.geom().size(s).getRealDouble());
 
