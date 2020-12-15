@@ -29,12 +29,13 @@ import inra.ijpb.binary.conncomp.ConnectedComponentsLabeling;
 import inra.ijpb.binary.conncomp.FloodFillComponentsLabeling;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.RealType;
 
 import java.util.ArrayList;
 import java.util.List;
 
 
-public class ConnectedComponentsValidator<T extends NativeType<T>> implements Validator<T> {
+public class ConnectedComponentsValidator<T extends NativeType<T> & RealType<T>> implements Validator<T> {
 
     private int invalid = 0;
     final private List<Integer> invalidList = new ArrayList<>();

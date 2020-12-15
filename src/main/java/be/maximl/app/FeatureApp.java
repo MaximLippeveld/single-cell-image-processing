@@ -22,7 +22,8 @@
 package be.maximl.app;
 
 import be.maximl.data.*;
-import be.maximl.data.bf.BioFormatsLoader;
+import be.maximl.data.loaders.Loader;
+import be.maximl.data.loaders.MaskedLoader;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import be.maximl.data.validators.Validator;
 import be.maximl.feature.FeatureVectorFactory;
@@ -31,7 +32,6 @@ import be.maximl.output.FeatureVecWriter;
 import be.maximl.output.SQLiteWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import io.scif.FormatException;
 import io.scif.SCIFIO;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
@@ -197,25 +197,12 @@ public class FeatureApp implements Command {
     // START type-specific code
     FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
     Validator<UnsignedShortType> validator = new ConnectedComponentsValidator<>();
-    Loader<UnsignedShortType> loader = new BioFormatsLoader<>(log, longChannels, scifio, validator, new UnsignedShortType());
-    Producer<UnsignedShortType> producer = new Producer<>(loader, completionService, factory, counter);
+    Loader<UnsignedShortType> loader = new MaskedLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator, new UnsignedShortType());
+    TaskProducer<UnsignedShortType> taskProducer = new TaskProducer<>(loader, completionService, factory, counter);
     // END type-specific code
 
-    loader.setImageLimit(imageLimit);
-    try {
-      loader.setLister(lister);
-    } catch (IOException e) {
-      System.err.println("Unknown file");
-      e.printStackTrace();
-      return;
-    } catch (FormatException e) {
-      System.err.println("Unknown format");
-      e.printStackTrace();
-      return;
-    }
-
     final long startTime = System.currentTimeMillis();
-    producer.start();
+    taskProducer.start();
 
     File output = new File(outputDirectory, outputFilename);
     FeatureVecWriter writer;
@@ -233,7 +220,7 @@ public class FeatureApp implements Command {
     writer.start();
 
     try {
-      producer.join(); // wait for the producer to put all images on the task queue
+      taskProducer.join(); // wait for the producer to put all images on the task queue
       int producerCount = counter.get();
       log.info("PRODUCER COUNT " + producerCount);
       log.info("Validator flagged " + validator.getInvalidCount() + " images");

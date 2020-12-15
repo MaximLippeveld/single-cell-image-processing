@@ -1,23 +1,23 @@
 package be.maximl.data;
 
 import be.maximl.feature.FeatureVectorFactory;
-import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.numeric.RealType;
 
+import java.util.Iterator;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Producer <T extends NativeType<T> & RealType<T>> extends Thread {
+public class TaskProducer<T extends NativeType<T> & RealType<T>> extends Thread {
 
-    final private Loader<T> loader;
+    final private Iterator<Image<T>> iterator;
     final private CompletionService<FeatureVectorFactory.FeatureVector> completionService;
     final private FeatureVectorFactory<T> factory;
     final private AtomicInteger counter;
 
-    public Producer(Loader<T> loader, CompletionService<FeatureVectorFactory.FeatureVector> completionService, FeatureVectorFactory<T> factory, AtomicInteger counter) {
-        this.loader = loader;
+    public TaskProducer(Iterator<Image<T>> iterator, CompletionService<FeatureVectorFactory.FeatureVector> completionService, FeatureVectorFactory<T> factory, AtomicInteger counter) {
+        this.iterator = iterator;
         this.completionService = completionService;
         this.factory = factory;
         this.counter = counter;
@@ -26,8 +26,8 @@ public class Producer <T extends NativeType<T> & RealType<T>> extends Thread {
     @Override
     public void run() {
         boolean submitted;
-        while(loader.hasNext()) {
-            Image<T> image = loader.next();
+        while(iterator.hasNext()) {
+            Image<T> image = iterator.next();
 
             if (image != null) {
                 submitted = false;

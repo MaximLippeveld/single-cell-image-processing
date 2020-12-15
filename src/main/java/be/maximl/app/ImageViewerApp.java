@@ -22,22 +22,15 @@
 package be.maximl.app;
 
 import be.maximl.data.Image;
-import be.maximl.data.Loader;
-import be.maximl.data.bf.BioFormatsLoader;
+import be.maximl.data.loaders.Loader;
+import be.maximl.data.loaders.MaskedLoader;
 import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import io.scif.FormatException;
-import io.scif.config.SCIFIOConfig;
-import io.scif.filters.ReaderFilter;
+import io.scif.Reader;
 import io.scif.img.IO;
-import io.scif.img.ImageRegion;
-import io.scif.img.Range;
 import io.scif.img.SCIFIOImgPlus;
-import io.scif.img.cell.SCIFIOCellImgFactory;
-import jdk.jfr.Unsigned;
 import net.imagej.ImageJ;
-import net.imagej.axis.Axes;
-import net.imagej.axis.AxisType;
 import net.imagej.display.ImageDisplay;
 import net.imagej.overlay.*;
 import net.imglib2.*;
@@ -45,12 +38,10 @@ import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.ImgView;
 import net.imglib2.img.array.ArrayImgFactory;
-import net.imglib2.img.cell.CellImgFactory;
 import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.integer.ByteType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import net.imglib2.view.Views;
 import org.scijava.io.location.FileLocation;
@@ -65,11 +56,17 @@ public class ImageViewerApp {
 
     public static void main(String[] args) throws IOException, FormatException {
 
-        ImageJ ij = new ImageJ();
-
         // Import directory
 //        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T5_69.cif";
-        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/";
+//        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/";
+        String importDirectory = "/data/Experiment_data/VIB/Vulcan/Slava_PBMC/images_subset/pbmc+PI_00000000.tiff";
+
+        ImageJ ij = new ImageJ();
+
+        Reader reader = ij.scifio().initializer().initializeReader(new FileLocation(importDirectory));
+
+        SCIFIOImgPlus<?> tiffImage = IO.open(importDirectory);
+
 
         // read the data
         final long startTime = System.currentTimeMillis();
@@ -80,17 +77,7 @@ public class ImageViewerApp {
         lister.addExtension("cif");
 
         ConnectedComponentsValidator<UnsignedShortType> validator = new ConnectedComponentsValidator<>();
-        Loader<UnsignedShortType> relation = new BioFormatsLoader<>(ij.log(), Arrays.asList(0L, 5L, 8L), ij.scifio(), validator, new UnsignedShortType());
-        relation.setImageLimit(-1);
-        try {
-            relation.setLister(lister);
-        } catch (IOException e) {
-            System.err.println("Unknown file");
-            e.printStackTrace();
-        } catch (FormatException e) {
-            System.err.println("Unknown format");
-            e.printStackTrace();
-        }
+        Loader<UnsignedShortType> relation = new MaskedLoader<>(ij.log(), -1, Arrays.asList(0L, 5L, 8L), lister.getFiles().iterator(), ij.scifio(), validator, new UnsignedShortType());
 
 //        relation.setStartIndex(17111);
 

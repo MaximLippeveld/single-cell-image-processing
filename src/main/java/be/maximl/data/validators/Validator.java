@@ -24,10 +24,11 @@ package be.maximl.data.validators;
 import be.maximl.data.Image;
 import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.RealType;
 
 import java.util.List;
 
-public interface Validator<T extends NativeType<T>> {
+public interface Validator<T extends NativeType<T> & RealType<T>> {
 
     boolean validate(Image<T> image);
 
