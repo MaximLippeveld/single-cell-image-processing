@@ -1,21 +1,40 @@
+/*-
+ * #%L
+ * SCIP: Single-cell image processing
+ * %%
+ * Copyright (C) 2020 Maxim Lippeveld
+ * %%
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * #L%
+ */
 package be.maximl.data.bf;
 
 import be.maximl.data.Image;
+import ij.process.ImageProcessor;
 import net.imglib2.IterableInterval;
 import net.imglib2.RandomAccessibleInterval;
+import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
-import net.imglib2.img.array.ArrayImg;
-import net.imglib2.img.array.ArrayImgFactory;
-import net.imglib2.img.array.ArrayImgs;
-import net.imglib2.img.basictypeaccess.array.BooleanArray;
-import net.imglib2.img.basictypeaccess.array.ShortArray;
+import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.roi.MaskInterval;
 import net.imglib2.roi.Masks;
+import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.type.numeric.RealType;
 import net.imglib2.view.Views;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -24,7 +43,7 @@ import java.util.List;
  * 
  * @author jgp
  */
-public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType> {
+public class BioFormatsImage<T extends NativeType<T> & RealType<T>> implements Image<T> {
   private static final long serialVersionUID = -2589804417011601051L;
 
   final private static int CHANNELDIM = 2;
@@ -33,12 +52,10 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   private String extension;
   private String filename;
   private long size;
-  private List<Integer> channels;
-  private short[] planes;
-  private ArrayImg<UnsignedShortType, ShortArray> img;
-  private ArrayImg<NativeBoolType, BooleanArray> maskImg;
-  private boolean[] masks;
-  final private long[] dims = new long[3];
+  private List<Long> channels;
+  private Img<T> img;
+  private Img<NativeBoolType> maskImg;
+  private long[] dims;
   final private int id;
 
   public BioFormatsImage(int id) {
@@ -51,26 +68,18 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   }
 
   @Override
-  public short[] getPlanes() {
-    return planes;
+  public void setPlanes(Img<T> planes) {
+    img = planes;
   }
 
   @Override
-  public void setPlanes(short[] planes) {
-    this.planes = planes;
-    img =  ArrayImgs.unsignedShorts(planes, getDimensions());
+  public void setMasks(Img<NativeBoolType> masks) {
+    maskImg = masks;
   }
 
   @Override
-  public void setMasks(boolean[] masks) {
-    this.masks = masks;
-    maskImg = ArrayImgs.booleans(masks, getDimensions());
-  }
-
-  @Override
-  public void setPlaneLengths(long[] planeLengths) {
-    dims[0] = planeLengths[0];
-    dims[1] = planeLengths[1];
+  public void setAxesLengths(long[] planeLengths) {
+    this.dims = planeLengths;
   }
 
   @Override
@@ -79,17 +88,17 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   }
 
   @Override
-  public RandomAccessibleInterval<UnsignedShortType> getImg() {
+  public RandomAccessibleInterval<T> getRAI() {
     return img;
   }
 
-  private ArrayImg<NativeBoolType, BooleanArray> getMaskImg() {
+  private Img<NativeBoolType> getMaskImg() {
     return maskImg;
   }
 
   @Override
-  public ImgFactory<UnsignedShortType> getFactory() {
-    return new ArrayImgFactory<>(new UnsignedShortType());
+  public ImgFactory<T> getFactory() {
+    return img.factory();
   }
 
   @Override
@@ -103,9 +112,8 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   }
 
   @Override
-  public boolean[] getMaskAsBooleanArray(int i) {
-    int planeSize = (int) (getDimensions()[0] * getDimensions()[1]);
-    return Arrays.copyOfRange(masks, i*planeSize, (i+1)*planeSize);
+  public ImageProcessor getMaskAsImageProcessor(int i) {
+    return ImageJFunctions.wrap(getMaskImg(), "test").getProcessor();
   }
 
   /**
@@ -133,23 +141,15 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
     return filename;
   }
 
-  /**
-   * @return the size
-   */
-  @Override
-  public long getSize() {
-    return size;
-  }
 
   @Override
-  public List<Integer> getChannels() {
+  public List<Long> getChannels() {
     return channels;
   }
 
   @Override
-  public void setChannels(List<Integer> channels) {
+  public void setChannels(List<Long> channels) {
     this.channels = channels;
-    dims[2] = channels.size();
   }
 
 
@@ -179,16 +179,6 @@ public class BioFormatsImage implements Image<UnsignedShortType, NativeBoolType>
   @Override
   public void setFilename(String filename) {
     this.filename = filename;
-  }
-
-
-  /**
-   * @param size
-   *          the size to set
-   */
-  @Override
-  public void setSize(long size) {
-    this.size = size;
   }
 
 }

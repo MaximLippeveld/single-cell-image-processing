@@ -1,10 +1,28 @@
+/*-
+ * #%L
+ * SCIP: Single-cell image processing
+ * %%
+ * Copyright (C) 2020 Maxim Lippeveld
+ * %%
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program.  If not, see
+ * <http://www.gnu.org/licenses/gpl-3.0.html>.
+ * #L%
+ */
 package be.maximl.app;
 
-import be.maximl.data.FileLister;
-import be.maximl.data.Image;
-import be.maximl.data.Loader;
+import be.maximl.data.*;
 import be.maximl.data.bf.BioFormatsLoader;
-import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import be.maximl.data.validators.Validator;
 import be.maximl.feature.FeatureVectorFactory;
@@ -14,9 +32,9 @@ import be.maximl.output.SQLiteWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.scif.FormatException;
+import io.scif.SCIFIO;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
-import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
@@ -32,8 +50,13 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 
+/**
+ * Computes descriptive image features for images contained in specified files. Can be used as an
+ * ImageJ plugin or as a standalone package through a CLI interface.
+ */
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
 public class FeatureApp implements Command {
 
@@ -48,6 +71,9 @@ public class FeatureApp implements Command {
   private static final String FEATURESET_DESC = "Specify which featureset to compute.";
   private static final String YAMLCONFIG_DESC = ".yml config file containing input files and features to compute.";
 
+  /**
+   * Contains configuration loaded from a YAML-file.
+   */
   static class Config {
     private List<File> files;
     private List<String> features;
@@ -77,6 +103,9 @@ public class FeatureApp implements Command {
 
   @Parameter
   private LogService log;
+
+  @Parameter
+  private SCIFIO scifio;
 
   @Parameter(label="Channels", description=FeatureApp.CHANNELS_DESC, persist = false)
   private String channels;
@@ -108,17 +137,35 @@ public class FeatureApp implements Command {
   @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false, persist = false)
   private File yamlConfig = null;
 
+  /**
+   * Orchestrates the entire feature computation process from reading in parameters/configuration to
+   * handling the lifecycle of all processing threads.
+   *
+   * The method proceeds as follows:
+   * <ol>
+   *     <li>setting up a <a href="#{@link}>{@link FileLister} to iterate over the input files,</a></li>
+   *     <li>determining which features to compute and setting up a <a href="#{@link}">{@link FeatureVectorFactory}</a>,</li>
+   *     <li>setting up a <a href="#{@link}>{@link Loader} to iterate over all images,</a></li>
+   *     <li>starting threads for submitting tasks to the factory and writing the output, and
+   *     instantiating a <a href="#{@link}">{@link CompletionService}</a> for handling the feature computation tasks,</li>
+   *     <li>and, finally, handling the teardown of all threads.</li>
+   * </ol>
+   */
   @Override
   public void run() {
 
+    /*
+    * Input files and the featureset to compute are either passed
+    * on through the @Parameter-annotated class members or in a YAML-file.
+    */
     FileLister lister;
     List<String> features;
     if (yamlConfig != null) {
+      // read config from yaml
       ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
       try {
         Config config = mapper.readValue(yamlConfig, Config.class);
 
-        //yaml present
         lister = (FileLister) () -> config.files;
         log.info(config.files);
         features = config.features;
@@ -127,6 +174,7 @@ public class FeatureApp implements Command {
         return;
       }
     } else {
+      // read config from class members
       RecursiveExtensionFilteredLister refLister = new RecursiveExtensionFilteredLister();
       refLister.setFileLimit(fileLimit);
       refLister.setPath(inputDirectory.getPath());
@@ -137,13 +185,21 @@ public class FeatureApp implements Command {
       lister = refLister;
       features = Collections.emptyList();
     }
-    boolean computeAllFeatures = features.size() == 0;
 
-    Validator<UnsignedShortType, NativeBoolType> validator = new ConnectedComponentsValidator<>();
-    Loader<UnsignedShortType, NativeBoolType> loader = new BioFormatsLoader(log, validator);
-    for (String channel : channels.split(",")) {
-      loader.addChannel(Integer.parseInt(channel));
-    }
+    boolean computeAllFeatures = features.size() == 0;
+    int queueCapacity = 50000;
+    BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(queueCapacity);
+    ExecutorService executor = new ThreadPoolExecutor(executorPoolSize, executorPoolSize, 1000, TimeUnit.MILLISECONDS, queue);
+    CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
+    AtomicInteger counter = new AtomicInteger(0);
+    List<Long> longChannels = Arrays.stream(channels.split(",")).map(Long::parseLong).collect(Collectors.toList());
+
+    // START type-specific code
+    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
+    Validator<UnsignedShortType> validator = new ConnectedComponentsValidator<>();
+    Loader<UnsignedShortType> loader = new BioFormatsLoader<>(log, longChannels, scifio, validator, new UnsignedShortType());
+    Producer<UnsignedShortType> producer = new Producer<>(loader, completionService, factory, counter);
+    // END type-specific code
 
     loader.setImageLimit(imageLimit);
     try {
@@ -151,49 +207,17 @@ public class FeatureApp implements Command {
     } catch (IOException e) {
       System.err.println("Unknown file");
       e.printStackTrace();
+      return;
     } catch (FormatException e) {
       System.err.println("Unknown format");
       e.printStackTrace();
+      return;
     }
-
-    int queueCapacity = 50000;
-    BlockingQueue<Runnable> queue = new ArrayBlockingQueue<>(queueCapacity);
-    ExecutorService executor = new ThreadPoolExecutor(executorPoolSize, executorPoolSize, 1000, TimeUnit.MILLISECONDS, queue);
-    CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
-    AtomicInteger counter = new AtomicInteger(0);
-
-    FeatureVectorFactory<UnsignedShortType, NativeBoolType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
-
-    Thread producer = new Thread(() -> {
-      boolean submitted;
-      while(loader.hasNext()) {
-        Image<UnsignedShortType, NativeBoolType> image = loader.next();
-
-        if (image != null) {
-          submitted = false;
-
-          while(!submitted) {
-            try {
-              completionService.submit(() -> factory.computeVector(image));
-              counter.incrementAndGet();
-              submitted = true;
-            } catch (RejectedExecutionException e) {
-              try {
-                synchronized (completionService) {
-                  completionService.wait();
-                }
-              } catch (InterruptedException ignored) { }
-            }
-          }
-        }
-      }
-    });
 
     final long startTime = System.currentTimeMillis();
     producer.start();
 
     File output = new File(outputDirectory, outputFilename);
-
     FeatureVecWriter writer;
     switch (FilenameUtils.getExtension(outputFilename)) {
       case "sqlite3":
@@ -209,7 +233,7 @@ public class FeatureApp implements Command {
     writer.start();
 
     try {
-      producer.join();
+      producer.join(); // wait for the producer to put all images on the task queue
       int producerCount = counter.get();
       log.info("PRODUCER COUNT " + producerCount);
       log.info("Validator flagged " + validator.getInvalidCount() + " images");
@@ -219,6 +243,11 @@ public class FeatureApp implements Command {
       log.info("Task producer finished after " + execTime + "s");
 
       if (writer.isAlive()) {
+        /*
+         * Ask the writer continuously how many vectors it has written.
+         * Once it has handled as many vectors as the producer has produced tasks
+         * the writer is interrupted.
+         */
         synchronized (writer.getHandled()) {
           while(producerCount != writer.getHandled().get()) {
             writer.getHandled().wait();
