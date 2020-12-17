@@ -139,9 +139,6 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
   @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false, persist = false)
   private File yamlConfig = null;
 
-  @Parameter
-  private T type;
-
   /**
    * Orchestrates the entire feature computation process from reading in parameters/configuration to
    * handling the lifecycle of all processing threads.
@@ -201,7 +198,7 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
 
     FeatureVectorFactory<T> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
     Validator<T> validator = new ConnectedComponentsValidator<>(opService);
-    Loader<T> loader = new CIFLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator, type);
+    Loader<T> loader = new CIFLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator);
     TaskProducer<T> taskProducer = new TaskProducer<>(loader, completionService, factory, counter);
 
     final long startTime = System.currentTimeMillis();

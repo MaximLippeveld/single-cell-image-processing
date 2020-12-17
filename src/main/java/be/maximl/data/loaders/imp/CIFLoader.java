@@ -18,8 +18,8 @@ import java.util.stream.IntStream;
 
 public class CIFLoader<T extends NativeType<T> & RealType<T>> extends MaskedLoader<T> {
 
-    public CIFLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, SCIFIO scifio, Validator<T> validator, T type) {
-        super(log, imageLimit, channels, lister, scifio, validator, type);
+    public CIFLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, SCIFIO scifio, Validator<T> validator) {
+        super(log, imageLimit, channels, lister, scifio, validator);
     }
 
     @Override
@@ -30,7 +30,7 @@ public class CIFLoader<T extends NativeType<T> & RealType<T>> extends MaskedLoad
 
     @Override
     protected Iterator<Img<T>> initializeNewImageIterator() {
-        ImgFactory<T> factory = new ArrayImgFactory<>(type);
+        ImgFactory<T> factory = new ArrayImgFactory<>(getType());
         return getIterator(IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 == 0).iterator(), factory);
     }
 }

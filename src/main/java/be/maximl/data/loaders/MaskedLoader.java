@@ -44,8 +44,8 @@ public abstract class MaskedLoader<T extends NativeType<T> & RealType<T>> extend
   final private Validator<T> validator;
   private Iterator<Img<NativeBoolType>> maskIterator;
 
-  public MaskedLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, SCIFIO scifio, Validator<T> validator, T type) {
-    super(lister, channels, imageLimit, log, scifio, type);
+  public MaskedLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, SCIFIO scifio, Validator<T> validator) {
+    super(lister, channels, imageLimit, log, scifio);
     this.validator = validator;
   }
 

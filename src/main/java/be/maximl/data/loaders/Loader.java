@@ -79,21 +79,24 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
     protected int currentIndex = 0;
     protected int currentFinalIndex = 0;
     final protected SCIFIO scifio;
-    final protected T type;
 
-    protected Loader(Iterator<File> lister, List<Long> channels, int imageLimit, LogService log, SCIFIO scifio, T type) {
+    protected Loader(Iterator<File> lister, List<Long> channels, int imageLimit, LogService log, SCIFIO scifio) {
         this.lister = lister;
         this.channels = channels;
         this.imageLimit = imageLimit;
         this.log = log;
         this.scifio = scifio;
-        this.type = type;
 
         try {
             initializeNewReader();
         } catch (IOException | FormatException e) {
             log.error(e);
         }
+    }
+
+    protected T getType() {
+        Img<T> img = (Img<T>) IO.open(new Loader.CloseNoOpReader(currentReader), new SCIFIOConfig()).getImg();
+        return img.firstElement().createVariable();
     }
 
     protected  <U extends RealType<U>> Iterator<Img<U>> getIterator(Iterator<Integer> indices, ImgFactory<U> factory) {
@@ -103,7 +106,7 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         config.imgOpenerSetRegion(
                 new ImageRegion(new AxisType[]{Axes.CHANNEL}, new Range(channels.stream().mapToLong(l -> l).toArray())));
 
-        MaskedLoader.CloseNoOpReader noOpreader = new MaskedLoader.CloseNoOpReader(currentReader);
+        Loader.CloseNoOpReader noOpreader = new Loader.CloseNoOpReader(currentReader);
 
         return new Iterator<Img<U>>() {
             @Override

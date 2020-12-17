@@ -16,13 +16,13 @@ import java.util.List;
 
 public class TIFFLoader<T extends NativeType<T> & RealType<T>> extends Loader<T> {
 
-    protected TIFFLoader(Iterator<File> lister, List<Long> channels, LogService log, SCIFIO scifio, T type) {
-        super(lister, channels, 1, log, scifio, type);
+    protected TIFFLoader(Iterator<File> lister, List<Long> channels, LogService log, SCIFIO scifio) {
+        super(lister, channels, 1, log, scifio);
     }
 
     @Override
     protected Iterator<Img<T>> initializeNewIterator() {
-        ImgFactory<T> factory = new ArrayImgFactory<>(type);
+        ImgFactory<T> factory = new ArrayImgFactory<>(getType());
         return getIterator(Collections.singleton(0).iterator(), factory);
     }
 }
