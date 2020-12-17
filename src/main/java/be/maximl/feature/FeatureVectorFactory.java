@@ -317,6 +317,7 @@ public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
             }
         } else {
             libImg = img.getImg();
+            Arrays.fill(compute, true);
         }
 
         for (int i = 0; i<img.getChannels().size(); i++) {

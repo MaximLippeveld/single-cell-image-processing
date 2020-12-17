@@ -24,6 +24,7 @@ package be.maximl.app;
 import be.maximl.data.*;
 import be.maximl.data.loaders.Loader;
 import be.maximl.data.loaders.imp.CIFLoader;
+import be.maximl.data.loaders.imp.TIFFLoader;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import be.maximl.data.validators.Validator;
 import be.maximl.feature.FeatureVectorFactory;
@@ -78,7 +79,16 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
    */
   static class Config {
     private List<File> files;
-    private List<String> features;
+    private List<String> features = Collections.emptyList();
+    private String loader;
+
+    public String getLoader() {
+      return loader;
+    }
+
+    public void setLoader(String loader) {
+      this.loader = loader;
+    }
 
     public List<File> getFiles() {
       return files;
@@ -162,6 +172,7 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
     */
     FileLister lister;
     List<String> features;
+    String loaderType = "";
     if (yamlConfig != null) {
       // read config from yaml
       ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
@@ -171,6 +182,7 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
         lister = (FileLister) () -> config.files;
         log.info(config.files);
         features = config.features;
+        loaderType = config.loader;
       } catch (IOException e) {
         e.printStackTrace();
         return;
@@ -186,6 +198,15 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
 
       lister = refLister;
       features = Collections.emptyList();
+
+      if (extensions.contains("cif")) {
+        loaderType = "cif";
+      } else if (extensions.contains("tif") | extensions.contains("tiff")) {
+        loaderType = "tif";
+      } else {
+        log.error("Unknown loader type");
+        return;
+      }
     }
 
     boolean computeAllFeatures = features.size() == 0;
@@ -198,7 +219,16 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
 
     FeatureVectorFactory<T> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
     Validator<T> validator = new ConnectedComponentsValidator<>(opService);
-    Loader<T> loader = new CIFLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator);
+
+    Loader<T> loader;
+    switch (loaderType) {
+      case "tif":
+        loader = new TIFFLoader<>(lister.getFiles().iterator(), longChannels, log, scifio);
+        break;
+      default:
+        loader = new CIFLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator);
+        break;
+    }
     TaskProducer<T> taskProducer = new TaskProducer<>(loader, completionService, factory, counter);
 
     final long startTime = System.currentTimeMillis();

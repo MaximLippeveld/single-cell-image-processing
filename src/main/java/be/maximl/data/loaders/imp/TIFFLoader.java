@@ -16,7 +16,7 @@ import java.util.List;
 
 public class TIFFLoader<T extends NativeType<T> & RealType<T>> extends Loader<T> {
 
-    protected TIFFLoader(Iterator<File> lister, List<Long> channels, LogService log, SCIFIO scifio) {
+    public TIFFLoader(Iterator<File> lister, List<Long> channels, LogService log, SCIFIO scifio) {
         super(lister, channels, 1, log, scifio);
     }
 
