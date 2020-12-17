@@ -21,24 +21,17 @@
  */
 package be.maximl.data;
 
-import ij.process.ImageProcessor;
-import net.imglib2.IterableInterval;
-import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
-import net.imglib2.img.display.imagej.ImageJFunctions;
-import net.imglib2.roi.MaskInterval;
-import net.imglib2.roi.Masks;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
-import net.imglib2.view.Views;
 
 import java.util.List;
 
 public class Image<T extends NativeType<T> & RealType<T>> {
 
-  final private static int CHANNELDIM = 2;
+  final public static int CHANNELDIM = 2;
 
   private String directory;
   private String extension;
@@ -74,28 +67,16 @@ public class Image<T extends NativeType<T> & RealType<T>> {
     return dims;
   }
 
-  public RandomAccessibleInterval<T> getRAI() {
+  public Img<T> getImg() {
     return img;
   }
 
-  private Img<NativeBoolType> getMaskImg() {
+  public Img<NativeBoolType> getMaskImg() {
     return maskImg;
   }
 
   public ImgFactory<T> getFactory() {
     return img.factory();
-  }
-
-  public MaskInterval getMaskInterval(int pos) {
-    return Masks.toMaskInterval(Views.hyperSlice(getMaskImg(), CHANNELDIM, pos));
-  }
-
-  public IterableInterval<NativeBoolType> getMaskAsIterableInterval(int pos) {
-    return Views.hyperSlice(getMaskImg(), CHANNELDIM, pos);
-  }
-
-  public ImageProcessor getMaskAsImageProcessor(int i) {
-    return ImageJFunctions.wrap(getMaskImg(), "ip").getProcessor();
   }
 
   /**

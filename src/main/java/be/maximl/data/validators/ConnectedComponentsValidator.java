@@ -27,8 +27,11 @@ import ij.process.ByteProcessor;
 import ij.process.ImageProcessor;
 import inra.ijpb.binary.conncomp.ConnectedComponentsLabeling;
 import inra.ijpb.binary.conncomp.FloodFillComponentsLabeling;
-import net.imglib2.type.BooleanType;
+import net.imagej.ops.OpService;
+import net.imglib2.img.Img;
+import net.imglib2.img.display.imagej.ImageJFunctions;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
 
 import java.util.ArrayList;
@@ -39,15 +42,26 @@ public class ConnectedComponentsValidator<T extends NativeType<T> & RealType<T>>
 
     private int invalid = 0;
     final private List<Integer> invalidList = new ArrayList<>();
+    final private OpService opService;
+
+    public ConnectedComponentsValidator(OpService opService) {
+        this.opService = opService;
+    }
 
     @Override
     public boolean validate(Image<T> image) {
         ConnectedComponentsLabeling labeling = new FloodFillComponentsLabeling(1, 8);
+        ImageProcessor ipMask;
+        BinaryProcessor bpMask;
+        Img<NativeBoolType> mask = image.getMaskImg();
 
         for (int i = 0; i<image.getChannels().size(); i++) {
-            ImageProcessor mask = image.getMaskAsImageProcessor(i);
-            BinaryProcessor bp = new BinaryProcessor(new ByteProcessor(mask, false));
-            int[] histogram = labeling.computeLabels(bp).getHistogram();
+
+            ipMask = ImageJFunctions.wrap(
+                    opService.transform().hyperSliceView(mask, Image.CHANNELDIM, i), "ip"
+            ).getProcessor();
+            bpMask = new BinaryProcessor(new ByteProcessor(ipMask, false));
+            int[] histogram = labeling.computeLabels(bpMask).getHistogram();
 
             boolean count = false;
             for (int j = 1; j<histogram.length; j++) { // start at 1 because 0 is background

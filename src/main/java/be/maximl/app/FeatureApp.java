@@ -23,7 +23,7 @@ package be.maximl.app;
 
 import be.maximl.data.*;
 import be.maximl.data.loaders.Loader;
-import be.maximl.data.loaders.MaskedLoader;
+import be.maximl.data.loaders.imp.CIFLoader;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import be.maximl.data.validators.Validator;
 import be.maximl.feature.FeatureVectorFactory;
@@ -35,6 +35,8 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.scif.SCIFIO;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
@@ -58,7 +60,7 @@ import java.util.stream.Collectors;
  * ImageJ plugin or as a standalone package through a CLI interface.
  */
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
-public class FeatureApp implements Command {
+public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Command {
 
   private static final String IMAGELIMIT_DESC = "Maximum number of images to load (-1 loads all images).";
   private static final String INPUTDIR_DESC = "Directory containing input files.";
@@ -137,6 +139,9 @@ public class FeatureApp implements Command {
   @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false, persist = false)
   private File yamlConfig = null;
 
+  @Parameter
+  private T type;
+
   /**
    * Orchestrates the entire feature computation process from reading in parameters/configuration to
    * handling the lifecycle of all processing threads.
@@ -194,12 +199,10 @@ public class FeatureApp implements Command {
     AtomicInteger counter = new AtomicInteger(0);
     List<Long> longChannels = Arrays.stream(channels.split(",")).map(Long::parseLong).collect(Collectors.toList());
 
-    // START type-specific code
-    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
-    Validator<UnsignedShortType> validator = new ConnectedComponentsValidator<>();
-    Loader<UnsignedShortType> loader = new MaskedLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator, new UnsignedShortType());
-    TaskProducer<UnsignedShortType> taskProducer = new TaskProducer<>(loader, completionService, factory, counter);
-    // END type-specific code
+    FeatureVectorFactory<T> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
+    Validator<T> validator = new ConnectedComponentsValidator<>(opService);
+    Loader<T> loader = new CIFLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator, type);
+    TaskProducer<T> taskProducer = new TaskProducer<>(loader, completionService, factory, counter);
 
     final long startTime = System.currentTimeMillis();
     taskProducer.start();

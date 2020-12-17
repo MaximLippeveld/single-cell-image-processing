@@ -24,10 +24,7 @@ package be.maximl.data.loaders;
 import be.maximl.data.*;
 import be.maximl.data.validators.Validator;
 import io.scif.*;
-import io.scif.img.SCIFIOImgPlus;
 import net.imglib2.img.Img;
-import net.imglib2.img.ImgFactory;
-import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
@@ -45,14 +42,11 @@ import java.util.List;
 public abstract class MaskedLoader<T extends NativeType<T> & RealType<T>> extends Loader<T> {
 
   final private Validator<T> validator;
-  final protected ImgFactory<NativeBoolType> maskFactory;
   private Iterator<Img<NativeBoolType>> maskIterator;
 
-  public MaskedLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, SCIFIO scifio, Validator<T> validator, T imageType) {
-    super(lister, channels, imageLimit, log, scifio, imageType);
+  public MaskedLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, SCIFIO scifio, Validator<T> validator, T type) {
+    super(lister, channels, imageLimit, log, scifio, type);
     this.validator = validator;
-
-    maskFactory = new ArrayImgFactory<>(new NativeBoolType());
   }
 
   @Override
@@ -76,6 +70,11 @@ public abstract class MaskedLoader<T extends NativeType<T> & RealType<T>> extend
       return null;
 
     return image;
+  }
+
+  @Override
+  public boolean isMasked(){
+    return true;
   }
 
   @Override

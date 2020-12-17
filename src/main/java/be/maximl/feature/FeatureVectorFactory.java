@@ -33,18 +33,16 @@ import net.imagej.ops.features.zernike.ZernikeNamespace;
 import net.imagej.ops.image.cooccurrenceMatrix.MatrixOrientation2D;
 import net.imglib2.*;
 import net.imglib2.RandomAccess;
+import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.ImgView;
 import net.imglib2.img.display.imagej.ImageJFunctions;
-import net.imglib2.roi.MaskInterval;
-import net.imglib2.roi.Masks;
 import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
-import net.imglib2.type.BooleanType;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
-import net.imglib2.type.numeric.integer.ByteType;
+import net.imglib2.view.IntervalView;
 import net.imglib2.view.Views;
 import org.scijava.log.LogService;
 
@@ -259,67 +257,79 @@ public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
         }
     }
 
-    public FeatureVector computeVector(Image<T> img) {
+    private void computeOnMask(FeatureVector vec, Image<T> image, boolean compute, int pos, long channel) {
+
+        Polygon2D polygon = opService.geom().contour(opService.transform().hyperSliceView(image.getMaskImg(), 2, pos), false);
+        for (Map.Entry<String, Function<Polygon2D, Double>> entry : pFeatureFunctions.entrySet()) {
+            vec.computeFeature(entry.getKey(), channel, entry.getValue(), polygon, compute);
+        }
+
+        IterableInterval<NativeBoolType> iiMask = Views.hyperSlice(image.getMaskImg(), 2, pos);
+        for(Map.Entry<String, Function<IterableInterval<NativeBoolType>, Double>> entry : iiMaskFeatureFunctions.entrySet()) {
+            vec.computeFeature(entry.getKey(), channel, entry.getValue(), iiMask, compute);
+        }
+    }
+
+    private void compute(FeatureVector vec, IntervalView<T> iv, boolean compute, long channel) {
+
+        for(Map.Entry<String, Function<Iterable<T>, Double>> entry : iFeatureFunctions.entrySet()) {
+            vec.computeFeature(entry.getKey(), channel, entry.getValue(), iv, compute);
+        }
+        for(Map.Entry<String, Function<IterableInterval<T>, Double>> entry : iiFeatureFunctions.entrySet()) {
+            vec.computeFeature(entry.getKey(), channel, entry.getValue(), iv, compute);
+        }
+
+        for(Map.Entry<String, Function<RandomAccessibleInterval<T>, Double>> entry : raiFeatureFunctions.entrySet()) {
+            vec.computeFeature(entry.getKey(), channel, entry.getValue(), iv, compute);
+        }
+
+        ImageProcessor ip = ImageJFunctions.wrap(iv, "image").getProcessor();
+        for(Map.Entry<String, Function<ImageProcessor, Double>> entry : ipFeatureFunctions.entrySet()) {
+            vec.computeFeature(entry.getKey(), channel, entry.getValue(), ip, compute);
+        }
+
+    }
+
+    public FeatureVector computeVector(Image<T> img, boolean masked) {
 
         FeatureVector vec = new FeatureVector();
         vec.add("file", img.getFilename());
         vec.add("directory", img.getDirectory());
         vec.add("id", img.getId());
 
-        RandomAccessibleInterval<T> libImg = img.getRAI();
         ImgFactory<T> factory = img.getFactory();
 
-        IterableInterval<T> maskedSlice;
-        MaskInterval sliceMask;
-        Long channel;
-        boolean compute;
-        for (int i = 0; i<img.getChannels().size(); i++) {
-
-            // create an iterator that only samples points within the mask
-            sliceMask = img.getMaskInterval(i);
-            maskedSlice = Regions.sample(img.getMaskInterval(i), Views.hyperSlice(libImg, 2, i));
-
-            compute = Regions.countTrue(Masks.toRandomAccessibleInterval(sliceMask)) > 0;
-            channel = img.getChannels().get(i);
-
-            for(Map.Entry<String, Function<Iterable<T>, Double>> entry : iFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), maskedSlice, compute);
-            }
-            for(Map.Entry<String, Function<IterableInterval<T>, Double>> entry : iiFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), maskedSlice, compute);
-            }
-
-            Polygon2D polygon = opService.geom().contour(Masks.toRandomAccessibleInterval(sliceMask), false);
-            for(Map.Entry<String, Function<Polygon2D, Double>> entry : pFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), polygon, compute);
-            }
-
-            IterableInterval<NativeBoolType> iiMask = img.getMaskAsIterableInterval(i);
-            for(Map.Entry<String, Function<IterableInterval<NativeBoolType>, Double>> entry : iiMaskFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), iiMask, compute);
-            }
-
-            RandomAccessibleInterval<T> rai = factory.create(maskedSlice.dimensionsAsLongArray());
-            Cursor<T> cursor = maskedSlice.localizingCursor();
-            RandomAccess<T> rac = rai.randomAccess();
+        boolean[] compute = new boolean[img.getChannels().size()];
+        Img<T> libImg;
+        if (masked) {
+            IterableInterval<T> slice = Regions.sampleWithRandomAccessible(img.getMaskImg(), img.getImg());
+            libImg = factory.create(slice.dimensionsAsLongArray());
+            Cursor<T> cursor = slice.localizingCursor();
+            RandomAccess<T> rac = libImg.randomAccess();
             while(cursor.hasNext()) {
                 cursor.fwd();
                 T type = cursor.get();
                 if(type.getRealDouble() > 0) {
                     rac.setPosition(cursor);
                     rac.get().set(type);
+                    compute[cursor.getIntPosition(2)] = true;
                 }
             }
-            for(Map.Entry<String, Function<RandomAccessibleInterval<T>, Double>> entry : raiFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), rai, compute);
-            }
-
-            ImageProcessor ip = ImageJFunctions.wrap(rai, "image").getProcessor();
-            for(Map.Entry<String, Function<ImageProcessor, Double>> entry : ipFeatureFunctions.entrySet()) {
-                vec.computeFeature(entry.getKey(), channel, entry.getValue(), ip, compute);
-            }
+        } else {
+            libImg = img.getImg();
         }
 
+        for (int i = 0; i<img.getChannels().size(); i++) {
+
+            Long channel = img.getChannels().get(i);
+
+            if (masked) {
+                computeOnMask(vec, img, compute[i], i, channel);
+            }
+
+            IntervalView<T> iv = opService.transform().hyperSliceView(libImg, 2, i);
+            compute(vec, iv, compute[i], channel);
+        }
         return vec;
     }
 }

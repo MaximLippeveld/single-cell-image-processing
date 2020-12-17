@@ -31,13 +31,17 @@ import io.scif.img.IO;
 import io.scif.img.ImageRegion;
 import io.scif.img.Range;
 import io.scif.img.SCIFIOImgPlus;
+import net.imagej.ImageJ;
 import net.imagej.axis.Axes;
 import net.imagej.axis.AxisType;
+import net.imagej.ops.transform.hyperSliceView.IntervalHyperSliceView;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.type.NativeType;
+import net.imglib2.type.Type;
 import net.imglib2.type.numeric.RealType;
+import net.imglib2.view.IntervalView;
 import org.scijava.io.location.FileLocation;
 import org.scijava.log.LogService;
 
@@ -75,7 +79,7 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
     protected int currentIndex = 0;
     protected int currentFinalIndex = 0;
     final protected SCIFIO scifio;
-    final protected ImgFactory<T> factory;
+    final protected T type;
 
     protected Loader(Iterator<File> lister, List<Long> channels, int imageLimit, LogService log, SCIFIO scifio, T type) {
         this.lister = lister;
@@ -83,8 +87,7 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         this.imageLimit = imageLimit;
         this.log = log;
         this.scifio = scifio;
-
-        factory = new ArrayImgFactory<>(type);
+        this.type = type;
 
         try {
             initializeNewReader();
@@ -151,6 +154,9 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         try {
             Img<T> planes = iterator.next();
 
+            ImageJ ij = new ImageJ();
+            IntervalView<T> it = ij.op().transform().hyperSliceView(planes, 2, 0);
+
             Image<T> image = createImage(currentReader, currentIndex, planes);
             currentIndex++;
 
@@ -173,6 +179,9 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         return null;
     }
 
+    public boolean isMasked() {
+        return false;
+    }
 
     public void setStartIndex(int index) {
 
