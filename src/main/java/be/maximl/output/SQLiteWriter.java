@@ -103,6 +103,7 @@ public class SQLiteWriter extends FeatureVecWriter {
                 Future<FeatureVectorFactory.FeatureVector> vec;
                 int internalCounter = 0;
                 int delta = 1000;
+                long start = System.currentTimeMillis();
                 while (!Thread.currentThread().isInterrupted()) {
                     synchronized (completionService) {
                         vec = completionService.take();
@@ -132,9 +133,10 @@ public class SQLiteWriter extends FeatureVecWriter {
                         handleCount.notify();
                         if (c % 500 == 0) {
                             log.info("Submmited " + c + " vectors to database.");
+                            log.info("Average time per vector " + (float)((System.currentTimeMillis() - start) / 500. / 1000.));
+                            start = System.currentTimeMillis();
                         }
                     }
-
                 }
 
             } catch (ExecutionException e) {

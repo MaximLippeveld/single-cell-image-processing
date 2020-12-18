@@ -21,64 +21,119 @@
  */
 package be.maximl.data;
 
-import ij.process.ImageProcessor;
-import net.imglib2.Interval;
-import net.imglib2.IterableInterval;
-import net.imglib2.RandomAccessibleInterval;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
-import net.imglib2.roi.MaskInterval;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
-import net.imglib2.type.numeric.integer.ByteType;
-import net.imglib2.view.IntervalView;
+import net.imglib2.type.numeric.RealType;
 
-import java.io.Serializable;
 import java.util.List;
 
-/**
- * Wrapper class which holds image-data to be processed.
- *
- * @param <T>
- */
-public interface Image<T extends NativeType<T>> extends Serializable {
+public class Image<T extends NativeType<T> & RealType<T>> {
 
-    /**
-     * @return unique identifier
-     */
-    int getId();
+  final public static int CHANNELDIM = 2;
 
-    void setPlanes(Img<T> planes);
+  private String directory;
+  private String extension;
+  private String filename;
+  private long size;
+  private List<Long> channels;
+  private Img<T> img;
+  private Img<NativeBoolType> maskImg;
+  private long[] dims;
+  final private int id;
 
-    void setMasks(Img<NativeBoolType> masks);
+  public Image(int id) {
+    this.id = id;
+  }
 
-    void setAxesLengths (long[] axesLengths);
+  public int getId() {
+    return id;
+  }
 
-    RandomAccessibleInterval<T> getRAI();
+  public void setPlanes(Img<T> planes) {
+    img = planes;
+  }
 
-    ImgFactory<T> getFactory();
+  public void setMasks(Img<NativeBoolType> masks) {
+    maskImg = masks;
+  }
 
-    MaskInterval getMaskInterval(int pos);
+  public void setAxesLengths(long[] planeLengths) {
+    this.dims = planeLengths;
+  }
 
-    IterableInterval<NativeBoolType> getMaskAsIterableInterval(int pos);
+  public long[] getDimensions() {
+    return dims;
+  }
 
-    String getDirectory();
+  public Img<T> getImg() {
+    return img;
+  }
 
-    String getExtension();
+  public Img<NativeBoolType> getMaskImg() {
+    return maskImg;
+  }
 
-    String getFilename();
+  public ImgFactory<T> getFactory() {
+    return img.factory();
+  }
 
-    List<Long> getChannels();
+  /**
+   * @return the directory
+   */
+  public String getDirectory() {
+    return directory;
+  }
 
-    void setChannels(List<Long> channels);
+  /**
+   * @return the extension
+   */
+  public String getExtension() {
+    return extension;
+  }
 
-    void setDirectory(String directory);
 
-    void setExtension(String extension);
+  /**
+   * @return the filename
+   */
+  public String getFilename() {
+    return filename;
+  }
 
-    void setFilename(String filename);
 
-    ImageProcessor getMaskAsImageProcessor(int i);
+  public List<Long> getChannels() {
+    return channels;
+  }
 
-    long[] getDimensions();
+  public void setChannels(List<Long> channels) {
+    this.channels = channels;
+  }
+
+
+  /**
+   * @param directory
+   *          the directory to set
+   */
+  public void setDirectory(String directory) {
+    this.directory = directory;
+  }
+
+  /**
+   * @param extension
+   *          the extension to set
+   */
+  public void setExtension(String extension) {
+    this.extension = extension;
+  }
+
+
+  /**
+   * @param filename
+   *          the filename to set
+   */
+  public void setFilename(String filename) {
+    this.filename = filename;
+  }
+
 }

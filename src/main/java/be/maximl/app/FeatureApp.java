@@ -22,7 +22,9 @@
 package be.maximl.app;
 
 import be.maximl.data.*;
-import be.maximl.data.bf.BioFormatsLoader;
+import be.maximl.data.loaders.Loader;
+import be.maximl.data.loaders.imp.CIFLoader;
+import be.maximl.data.loaders.imp.TIFFLoader;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import be.maximl.data.validators.Validator;
 import be.maximl.feature.FeatureVectorFactory;
@@ -31,10 +33,11 @@ import be.maximl.output.FeatureVecWriter;
 import be.maximl.output.SQLiteWriter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import io.scif.FormatException;
 import io.scif.SCIFIO;
 import net.imagej.ImageJ;
 import net.imagej.ops.OpService;
+import net.imglib2.type.NativeType;
+import net.imglib2.type.numeric.RealType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FilenameUtils;
@@ -58,7 +61,7 @@ import java.util.stream.Collectors;
  * ImageJ plugin or as a standalone package through a CLI interface.
  */
 @Plugin(type = Command.class, menuPath = "Plugins>SCI Feature extraction")
-public class FeatureApp implements Command {
+public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Command {
 
   private static final String IMAGELIMIT_DESC = "Maximum number of images to load (-1 loads all images).";
   private static final String INPUTDIR_DESC = "Directory containing input files.";
@@ -76,7 +79,16 @@ public class FeatureApp implements Command {
    */
   static class Config {
     private List<File> files;
-    private List<String> features;
+    private List<String> features = Collections.emptyList();
+    private String loader;
+
+    public String getLoader() {
+      return loader;
+    }
+
+    public void setLoader(String loader) {
+      this.loader = loader;
+    }
 
     public List<File> getFiles() {
       return files;
@@ -160,6 +172,7 @@ public class FeatureApp implements Command {
     */
     FileLister lister;
     List<String> features;
+    String loaderType = "";
     if (yamlConfig != null) {
       // read config from yaml
       ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
@@ -169,6 +182,7 @@ public class FeatureApp implements Command {
         lister = (FileLister) () -> config.files;
         log.info(config.files);
         features = config.features;
+        loaderType = config.loader;
       } catch (IOException e) {
         e.printStackTrace();
         return;
@@ -184,6 +198,15 @@ public class FeatureApp implements Command {
 
       lister = refLister;
       features = Collections.emptyList();
+
+      if (extensions.contains("cif")) {
+        loaderType = "cif";
+      } else if (extensions.contains("tif") | extensions.contains("tiff")) {
+        loaderType = "tif";
+      } else {
+        log.error("Unknown loader type");
+        return;
+      }
     }
 
     boolean computeAllFeatures = features.size() == 0;
@@ -194,28 +217,22 @@ public class FeatureApp implements Command {
     AtomicInteger counter = new AtomicInteger(0);
     List<Long> longChannels = Arrays.stream(channels.split(",")).map(Long::parseLong).collect(Collectors.toList());
 
-    // START type-specific code
-    FeatureVectorFactory<UnsignedShortType> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
-    Validator<UnsignedShortType> validator = new ConnectedComponentsValidator<>();
-    Loader<UnsignedShortType> loader = new BioFormatsLoader<>(log, longChannels, scifio, validator, new UnsignedShortType());
-    Producer<UnsignedShortType> producer = new Producer<>(loader, completionService, factory, counter);
-    // END type-specific code
+    FeatureVectorFactory<T> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
+    Validator<T> validator = new ConnectedComponentsValidator<>(opService);
 
-    loader.setImageLimit(imageLimit);
-    try {
-      loader.setLister(lister);
-    } catch (IOException e) {
-      System.err.println("Unknown file");
-      e.printStackTrace();
-      return;
-    } catch (FormatException e) {
-      System.err.println("Unknown format");
-      e.printStackTrace();
-      return;
+    Loader<T> loader;
+    switch (loaderType) {
+      case "tif":
+        loader = new TIFFLoader<>(lister.getFiles().iterator(), longChannels, log, scifio);
+        break;
+      default:
+        loader = new CIFLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator);
+        break;
     }
+    TaskProducer<T> taskProducer = new TaskProducer<>(loader, completionService, factory, counter);
 
     final long startTime = System.currentTimeMillis();
-    producer.start();
+    taskProducer.start();
 
     File output = new File(outputDirectory, outputFilename);
     FeatureVecWriter writer;
@@ -233,7 +250,7 @@ public class FeatureApp implements Command {
     writer.start();
 
     try {
-      producer.join(); // wait for the producer to put all images on the task queue
+      taskProducer.join(); // wait for the producer to put all images on the task queue
       int producerCount = counter.get();
       log.info("PRODUCER COUNT " + producerCount);
       log.info("Validator flagged " + validator.getInvalidCount() + " images");
