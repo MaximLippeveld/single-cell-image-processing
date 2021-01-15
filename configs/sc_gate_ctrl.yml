@@ -1,0 +1,28 @@
+loader: cif
+features:
+files:
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T5_69.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T5_52.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T11_64.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T7_71.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T4_51.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T0_49.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T6_62.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T11_55.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T5_61.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T3_67.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T0_58.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T13_65.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T7_54.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T4_68.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T13_56.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T6_70.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T6_53.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T13_73.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T15_57.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T0_66.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T7_63.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T11_72.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T3_59.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C1_T3_50.cif
+ - /data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C2_T4_60.cif

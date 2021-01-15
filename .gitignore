@@ -23,3 +23,8 @@ buildNumber.properties
 .idea/vcs.xml
 sci-java-mvn.iml
 spark-warehouse/
+.settings/
+.ipynb_checkpoints/
+.project
+.classpath
+.factorypath
