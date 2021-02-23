@@ -42,11 +42,14 @@ import java.util.List;
 public abstract class MaskedLoader<T extends NativeType<T> & RealType<T>> extends Loader<T> {
 
   final private Validator<T> validator;
+  final protected Iterator<File> maskLister;
   private Iterator<Img<NativeBoolType>> maskIterator;
+  protected Reader maskReader;
 
-  public MaskedLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, SCIFIO scifio, Validator<T> validator) {
+  public MaskedLoader(LogService log, int imageLimit, List<Long> channels, Iterator<File> lister, Iterator<File> maskLister, SCIFIO scifio, Validator<T> validator) {
     super(lister, channels, imageLimit, log, scifio);
     this.validator = validator;
+    this.maskLister = maskLister;
   }
 
   @Override

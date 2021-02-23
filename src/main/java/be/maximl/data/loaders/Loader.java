@@ -34,12 +34,9 @@ import io.scif.img.SCIFIOImgPlus;
 import net.imagej.ImageJ;
 import net.imagej.axis.Axes;
 import net.imagej.axis.AxisType;
-import net.imagej.ops.transform.hyperSliceView.IntervalHyperSliceView;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
-import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.type.NativeType;
-import net.imglib2.type.Type;
 import net.imglib2.type.numeric.RealType;
 import net.imglib2.view.IntervalView;
 import org.scijava.io.location.FileLocation;
@@ -99,14 +96,14 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         return img.firstElement().createVariable();
     }
 
-    protected  <U extends RealType<U>> Iterator<Img<U>> getIterator(Iterator<Integer> indices, ImgFactory<U> factory) {
+    protected  <U extends RealType<U>> Iterator<Img<U>> getIterator(Iterator<Integer> indices, ImgFactory<U> factory, Reader reader) {
 
         SCIFIOConfig config = new SCIFIOConfig();
         config.imgOpenerSetOpenAllImages(false);
         config.imgOpenerSetRegion(
                 new ImageRegion(new AxisType[]{Axes.CHANNEL}, new Range(channels.stream().mapToLong(l -> l).toArray())));
 
-        Loader.CloseNoOpReader noOpreader = new Loader.CloseNoOpReader(currentReader);
+        Loader.CloseNoOpReader noOpreader = new Loader.CloseNoOpReader(reader);
 
         return new Iterator<Img<U>>() {
             @Override
@@ -136,7 +133,7 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         return image;
     }
 
-    private void initializeNewReader() throws IOException, FormatException {
+    protected void initializeNewReader() throws IOException, FormatException {
         currentIndex = 0;
         currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
         currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;

@@ -24,6 +24,7 @@ package be.maximl.app;
 import be.maximl.data.*;
 import be.maximl.data.loaders.Loader;
 import be.maximl.data.loaders.imp.CIFLoader;
+import be.maximl.data.loaders.imp.MaskedTIFFLoader;
 import be.maximl.data.loaders.imp.TIFFLoader;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import be.maximl.data.validators.Validator;
@@ -65,6 +66,7 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
 
   private static final String IMAGELIMIT_DESC = "Maximum number of images to load (-1 loads all images).";
   private static final String INPUTDIR_DESC = "Directory containing input files.";
+  private static final String MASKINPUTDIR_DESC = "Directory containing masks for input files.";
   private static final String FILELIMIT_DESC = "Maximum number of files to process (-1 processes all files).";
   private static final String OUTPUTDIR_DESC = "Directory to which output may be written.";
   private static final String OUTPUTFILENAME_DESC = "Filename of file containing feature vectors.";
@@ -79,6 +81,7 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
    */
   static class Config {
     private List<File> files;
+    private List<File> maskFiles;
     private List<String> features = Collections.emptyList();
     private String loader;
 
@@ -94,12 +97,20 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
       return files;
     }
 
+    public List<File> getMaskFiles() {
+      return maskFiles;
+    }
+
     public List<String> getFeatures() {
       return features;
     }
 
     public void setFiles(List<File> files) {
       this.files = files;
+    }
+
+    public void setMaskFiles(List<File> files) {
+      this.maskFiles = files;
     }
 
     public void setFeatures(List<String> features) {
@@ -125,6 +136,9 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
   @Parameter(label="Input directory", description = FeatureApp.INPUTDIR_DESC, required = false, persist = false)
   private File inputDirectory = null;
 
+  @Parameter(label="Mask input directory", description = FeatureApp.MASKINPUTDIR_DESC, required = false, persist = false)
+  private File maskInputDirectory = null;
+
   @Parameter(label="Extensions", description = FeatureApp.EXTENSIONS_DESC, required = false, persist = false)
   private String extensions = null;
 
@@ -149,6 +163,19 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
   @Parameter(label="YAML config", description = FeatureApp.YAMLCONFIG_DESC, required = false, persist = false)
   private File yamlConfig = null;
 
+  private Loader<T> makeLoader(String loaderType, Iterator<File> imageLister, Iterator<File> maskLister, Validator<T> validator) {
+    List<Long> longChannels = Arrays.stream(channels.split(",")).map(Long::parseLong).collect(Collectors.toList());
+
+    switch (loaderType) {
+      case "tif":
+        return new TIFFLoader<>(imageLister, longChannels, log, scifio);
+      case "maskedtif":
+        return new MaskedTIFFLoader<>(log, imageLimit, longChannels, imageLister, maskLister, scifio, validator);
+      default:
+        return new CIFLoader<>(log, imageLimit, longChannels, imageLister, scifio, validator);
+    }
+  }
+
   /**
    * Orchestrates the entire feature computation process from reading in parameters/configuration to
    * handling the lifecycle of all processing threads.
@@ -170,19 +197,22 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
     * Input files and the featureset to compute are either passed
     * on through the @Parameter-annotated class members or in a YAML-file.
     */
-    FileLister lister;
+    Validator<T> validator = new ConnectedComponentsValidator<>(opService);
     List<String> features;
-    String loaderType = "";
+    Loader<T> loader;
     if (yamlConfig != null) {
       // read config from yaml
       ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
       try {
         Config config = mapper.readValue(yamlConfig, Config.class);
 
-        lister = (FileLister) () -> config.files;
-        log.info(config.files);
         features = config.features;
-        loaderType = config.loader;
+
+        if (config.getMaskFiles() != null) {
+          loader = makeLoader(config.loader, config.files.iterator(), config.maskFiles.iterator(), validator);
+        } else {
+          loader = makeLoader(config.loader, config.files.iterator(), null, validator);
+        }
       } catch (IOException e) {
         e.printStackTrace();
         return;
@@ -196,13 +226,18 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
         refLister.addExtension(extension);
       }
 
-      lister = refLister;
       features = Collections.emptyList();
 
       if (extensions.contains("cif")) {
-        loaderType = "cif";
+        loader = makeLoader("cif", refLister.getFiles().iterator(), null, validator);
       } else if (extensions.contains("tif") | extensions.contains("tiff")) {
-        loaderType = "tif";
+        if (maskInputDirectory == null) {
+          loader = makeLoader("tif", refLister.getFiles().iterator(), null, validator);
+        } else {
+          Iterator<File> it = refLister.getFiles().iterator();
+          refLister.setPath(maskInputDirectory.getPath());
+          loader = makeLoader("maskedtif", it, refLister.getFiles().iterator(), validator);
+        }
       } else {
         log.error("Unknown loader type");
         return;
@@ -215,20 +250,7 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
     ExecutorService executor = new ThreadPoolExecutor(executorPoolSize, executorPoolSize, 1000, TimeUnit.MILLISECONDS, queue);
     CompletionService<FeatureVectorFactory.FeatureVector> completionService = new ExecutorCompletionService<>(executor);
     AtomicInteger counter = new AtomicInteger(0);
-    List<Long> longChannels = Arrays.stream(channels.split(",")).map(Long::parseLong).collect(Collectors.toList());
-
     FeatureVectorFactory<T> factory = new FeatureVectorFactory<>(opService, log, features, computeAllFeatures);
-    Validator<T> validator = new ConnectedComponentsValidator<>(opService);
-
-    Loader<T> loader;
-    switch (loaderType) {
-      case "tif":
-        loader = new TIFFLoader<>(lister.getFiles().iterator(), longChannels, log, scifio);
-        break;
-      default:
-        loader = new CIFLoader<>(log, imageLimit, longChannels, lister.getFiles().iterator(), scifio, validator);
-        break;
-    }
     TaskProducer<T> taskProducer = new TaskProducer<>(loader, completionService, factory, counter);
 
     final long startTime = System.currentTimeMillis();
@@ -278,7 +300,8 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
       execTime = (endTime - startTime)/1000.;
       log.info("CSV Writer finished after " + execTime + "s");
 
-      executor.shutdown();
+//      executor.shutdown();
+      executor.awaitTermination(1, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       log.error("Interrupted while shutting down");
       e.printStackTrace();

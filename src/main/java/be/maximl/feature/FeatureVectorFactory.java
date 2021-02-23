@@ -94,6 +94,10 @@ public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
         BiConsumer<String, Function<RandomAccessibleInterval<T>, Double>> raiFuncAdder = addFunc(raiFeatureFunctions);
         BiConsumer<String, Function<ImageProcessor, Double>> ipFuncAdder = addFunc(ipFeatureFunctions);
 
+        // basic image properties
+        iiFuncAdder.accept("width", s -> (double)s.dimension(0));
+        iiFuncAdder.accept("height", s -> (double)s.dimension(1));
+
         // intensity features
         iFuncAdder.accept("mean", s -> opService.stats().mean(s).getRealDouble());
         iFuncAdder.accept("geometricMean", s -> opService.stats().geometricMean(s).getRealDouble());
