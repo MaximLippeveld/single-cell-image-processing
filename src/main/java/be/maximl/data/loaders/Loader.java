@@ -85,11 +85,15 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         this.scifio = scifio;
 
         try {
-            initializeNewReader();
+            currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
+            currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
         } catch (IOException | FormatException e) {
             log.error(e);
         }
+        iterator = initializeNewIterator();
     }
+
+    abstract protected Iterator<Img<T>> initializeNewIterator();
 
     protected T getType() {
         Img<T> img = (Img<T>) IO.open(new Loader.CloseNoOpReader(currentReader), new SCIFIOConfig()).getImg();
@@ -133,16 +137,6 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
         return image;
     }
 
-    protected void initializeNewReader() throws IOException, FormatException {
-        currentIndex = 0;
-        currentReader = scifio.initializer().initializeReader(new FileLocation(this.lister.next()));
-        currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
-
-        iterator = initializeNewIterator();
-    }
-
-    abstract protected Iterator<Img<T>> initializeNewIterator();
-
     @Override
     public boolean hasNext() {
         return iterator.hasNext();
@@ -165,7 +159,9 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
                 currentReader.close();
 
                 // initialize new reader
-                initializeNewReader();
+                currentReader = scifio.initializer().initializeReader(new FileLocation(lister.next()));
+                currentFinalIndex = imageLimit == -1 ? currentReader.getImageCount() : imageLimit;
+                iterator = initializeNewIterator();
             }
 
             return image;
@@ -181,9 +177,5 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
 
     public boolean isMasked() {
         return false;
-    }
-
-    public void setStartIndex(int index) {
-
     }
 }

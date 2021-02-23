@@ -44,6 +44,6 @@ public class TIFFLoader<T extends NativeType<T> & RealType<T>> extends Loader<T>
     @Override
     protected Iterator<Img<T>> initializeNewIterator() {
         ImgFactory<T> factory = new ArrayImgFactory<>(getType());
-        return getIterator(Collections.singleton(0).iterator(), factory);
+        return getIterator(Collections.singleton(0).iterator(), factory, currentReader);
     }
 }

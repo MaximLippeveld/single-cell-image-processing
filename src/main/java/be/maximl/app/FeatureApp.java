@@ -234,9 +234,14 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
         if (maskInputDirectory == null) {
           loader = makeLoader("tif", refLister.getFiles().iterator(), null, validator);
         } else {
-          Iterator<File> it = refLister.getFiles().iterator();
-          refLister.setPath(maskInputDirectory.getPath());
-          loader = makeLoader("maskedtif", it, refLister.getFiles().iterator(), validator);
+          RecursiveExtensionFilteredLister maskRefLister = new RecursiveExtensionFilteredLister();
+          maskRefLister.setFileLimit(fileLimit);
+          maskRefLister.setPath(inputDirectory.getPath());
+          for (String extension : extensions.split(",")) {
+            maskRefLister.addExtension(extension);
+          }
+          maskRefLister.setPath(maskInputDirectory.getPath());
+          loader = makeLoader("maskedtif", refLister.getFiles().iterator(), maskRefLister.getFiles().iterator(), validator);
         }
       } else {
         log.error("Unknown loader type");
@@ -325,6 +330,7 @@ public class FeatureApp<T extends NativeType<T> & RealType<T>> implements Comman
     options.addOption("e", "extensions", true, FeatureApp.EXTENSIONS_DESC);
     options.addOption("y", "yamlConfig", true, FeatureApp.YAMLCONFIG_DESC);
     options.addOption("i", "inputDirectory", true, FeatureApp.INPUTDIR_DESC);
+    options.addOption("m", "maskInputDirectory", true, FeatureApp.MASKINPUTDIR_DESC);
     options.addRequiredOption("c", "channels", true, FeatureApp.CHANNELS_DESC);
 
     HelpFormatter formatter = new HelpFormatter();

@@ -28,9 +28,11 @@ import net.imglib2.img.Img;
 import net.imglib2.type.NativeType;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.RealType;
+import org.scijava.io.location.FileLocation;
 import org.scijava.log.LogService;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
@@ -50,39 +52,52 @@ public abstract class MaskedLoader<T extends NativeType<T> & RealType<T>> extend
     super(lister, channels, imageLimit, log, scifio);
     this.validator = validator;
     this.maskLister = maskLister;
-  }
 
-  @Override
-  protected Iterator<Img<T>> initializeNewIterator() {
+    try {
+      maskReader = scifio.initializer().initializeReader(new FileLocation(maskLister.next()));
+    } catch (IOException | FormatException e) {
+      log.error(e);
+    }
     maskIterator = initializeNewMaskIterator();
-    return initializeNewImageIterator();
   }
 
   abstract protected Iterator<Img<NativeBoolType>> initializeNewMaskIterator();
-  abstract protected Iterator<Img<T>> initializeNewImageIterator();
 
   @Override
   public Image<T> next() {
-    Image<T> image = super.next();
 
-    Img<NativeBoolType> mask = maskIterator.next();
-    image.setMasks(mask);
+      try {
+          Image<T> image = super.next();
 
-    boolean valid = validator.validate(image);
-    if (!valid)
+          Img<NativeBoolType> mask = maskIterator.next();
+          image.setMasks(mask);
+
+          boolean valid = validator.validate(image);
+          if (!valid)
+            return null;
+
+          if (!maskIterator.hasNext() & maskLister.hasNext()) {
+            // close current reader
+            maskReader.close();
+
+            // initialize new reader
+            maskReader = scifio.initializer().initializeReader(new FileLocation(maskLister.next()));
+            maskIterator = initializeNewMaskIterator();
+          }
+
+          return image;
+      } catch (IOException e) {
+        e.printStackTrace();
+      } catch (FormatException e) {
+        log.error("Format exception " + maskReader.getMetadata().getDatasetName());
+        e.printStackTrace();
+      }
       return null;
-
-    return image;
   }
 
   @Override
   public boolean isMasked(){
     return true;
-  }
-
-  @Override
-  public void setStartIndex(int index) {
-    this.currentIndex = index;
   }
 
 }

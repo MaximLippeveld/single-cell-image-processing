@@ -50,7 +50,7 @@ public class CIFLoader<T extends NativeType<T> & RealType<T>> extends MaskedLoad
     }
 
     @Override
-    protected Iterator<Img<T>> initializeNewImageIterator() {
+    protected Iterator<Img<T>> initializeNewIterator() {
         ImgFactory<T> factory = new ArrayImgFactory<>(getType());
         return getIterator(IntStream.range(currentIndex, currentFinalIndex).filter(l -> l%2 == 0).iterator(), factory, currentReader);
     }
