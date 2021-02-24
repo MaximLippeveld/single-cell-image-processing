@@ -21,6 +21,8 @@
  */
 package be.maximl.data;
 
+import net.imglib2.Cursor;
+import net.imglib2.RandomAccess;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;
 import net.imglib2.type.NativeType;
@@ -73,6 +75,26 @@ public class Image<T extends NativeType<T> & RealType<T>> {
 
   public Img<NativeBoolType> getMaskImg() {
     return maskImg;
+  }
+
+  public Img<T> getMaskedImage() {
+    Img<T> output = getFactory().create(getMaskImg().dimensionsAsLongArray());
+    Cursor<NativeBoolType> cursor = getMaskImg().localizingCursor();
+    RandomAccess<T> outputRandomAccess = output.randomAccess();
+    RandomAccess<T> imgRandomAccess = getImg().randomAccess();
+    while(cursor.hasNext()) {
+      cursor.fwd();
+      outputRandomAccess.setPosition(cursor);
+      imgRandomAccess.setPosition(cursor);
+      if(cursor.get().get()) {
+        T type = imgRandomAccess.get();
+        outputRandomAccess.get().set(type);
+      } else {
+        outputRandomAccess.get().setZero();
+      }
+    }
+
+    return output;
   }
 
   public ImgFactory<T> getFactory() {

@@ -306,26 +306,13 @@ public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
         boolean[] compute = new boolean[img.getChannels().size()];
         Img<T> output;
         if (masked) {
-            output = factory.create(img.getMaskImg().dimensionsAsLongArray());
-            Cursor<NativeBoolType> cursor = img.getMaskImg().localizingCursor();
-            RandomAccess<T> outputRandomAccess = output.randomAccess();
-            RandomAccess<T> imgRandomAccess = img.getImg().randomAccess();
-            while(cursor.hasNext()) {
-                cursor.fwd();
-                outputRandomAccess.setPosition(cursor);
-                imgRandomAccess.setPosition(cursor);
-                if(cursor.get().get()) {
-                    T type = imgRandomAccess.get();
-                    outputRandomAccess.get().set(type);
-                    compute[cursor.getIntPosition(2)] = true;
-                } else {
-                    outputRandomAccess.get().setZero();
-                }
-            }
+            output = img.getMaskedImage();
         } else {
             output = img.getImg();
-            Arrays.fill(compute, true);
         }
+
+        //TODO: check which channels contain valid pixels
+        Arrays.fill(compute, true);
 
         for (int i = 0; i<img.getChannels().size(); i++) {
 
