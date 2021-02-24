@@ -61,13 +61,8 @@ public class ImageViewerApp {
 
     public static void main(String[] args) throws IOException, FormatException {
 
-        // Import directory
-//        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T5_69.cif";
-//        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/";
-        String importDirectory = "/data/Experiment_data/VIB/Vulcan/Slava_PBMC/images/pbmc+PI_00000000.tiff";
-//        String importDirectory = "D:\\Experiment_data\\VIB\\Vulcan\\Slava_PBMC\\images\\pbmc+PI_00000000.tiff";
-        String maskImportDirectory = "/data/Experiment_data/VIB/Vulcan/Slava_PBMC/masks/pbmc+PI_00000000.tiff";
-//        String maskImportDirectory = "D:\\Experiment_data\\VIB\\Vulcan\\Slava_PBMC\\masks\\pbmc+PI_00000000.tiff";
+        String importDirectory = ImageViewerApp.class.getClassLoader().getResource("image.tiff").getPath();
+        String maskImportDirectory = ImageViewerApp.class.getClassLoader().getResource("mask.tiff").getPath();
 
         ImageJ ij = new ImageJ();
 
