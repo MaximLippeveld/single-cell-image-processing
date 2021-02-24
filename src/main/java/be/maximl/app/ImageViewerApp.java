@@ -28,9 +28,14 @@ import be.maximl.data.RecursiveExtensionFilteredLister;
 import be.maximl.data.validators.ConnectedComponentsValidator;
 import io.scif.FormatException;
 import io.scif.Reader;
+import io.scif.config.SCIFIOConfig;
 import io.scif.img.IO;
+import io.scif.img.ImageRegion;
+import io.scif.img.Range;
 import io.scif.img.SCIFIOImgPlus;
 import net.imagej.ImageJ;
+import net.imagej.axis.Axes;
+import net.imagej.axis.AxisType;
 import net.imagej.display.ImageDisplay;
 import net.imagej.overlay.*;
 import net.imglib2.*;
@@ -43,6 +48,7 @@ import net.imglib2.roi.Regions;
 import net.imglib2.roi.geom.real.Polygon2D;
 import net.imglib2.type.logic.NativeBoolType;
 import net.imglib2.type.numeric.integer.UnsignedShortType;
+import net.imglib2.type.numeric.real.FloatType;
 import org.scijava.io.location.FileLocation;
 import org.scijava.util.Colors;
 
@@ -58,22 +64,55 @@ public class ImageViewerApp {
         // Import directory
 //        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/C3_T5_69.cif";
 //        String importDirectory = "/data/Experiment_data/weizmann/EhV/high_time_res/Ctrl/";
-        String importDirectory = "/data/Experiment_data/VIB/Vulcan/Slava_PBMC/images_subset/pbmc+PI_00000000.tiff";
+        String importDirectory = "/data/Experiment_data/VIB/Vulcan/Slava_PBMC/images/pbmc+PI_00000000.tiff";
+//        String importDirectory = "D:\\Experiment_data\\VIB\\Vulcan\\Slava_PBMC\\images\\pbmc+PI_00000000.tiff";
+        String maskImportDirectory = "/data/Experiment_data/VIB/Vulcan/Slava_PBMC/masks/pbmc+PI_00000000.tiff";
+//        String maskImportDirectory = "D:\\Experiment_data\\VIB\\Vulcan\\Slava_PBMC\\masks\\pbmc+PI_00000000.tiff";
 
         ImageJ ij = new ImageJ();
 
         Reader reader = ij.scifio().initializer().initializeReader(new FileLocation(importDirectory));
+        Reader maskReader = ij.scifio().initializer().initializeReader(new FileLocation(maskImportDirectory));
 
-        SCIFIOImgPlus<?> tiffImage = IO.open(importDirectory);
+        SCIFIOImgPlus<?> im = IO.open(importDirectory);
+
+        SCIFIOConfig config = new SCIFIOConfig();
+//        config.imgOpenerSetIndex(0);
+//        ImageRegion region = new ImageRegion(
+//                new AxisType[]{im.axis(2).type()}, new Range(new long[]{1,2})
+//        );
+//        config.imgOpenerSetRegion(region);
+
+        SCIFIOImgPlus<FloatType> tiffImage = IO.open(importDirectory, new ArrayImgFactory<>(new FloatType()), config);
+        SCIFIOImgPlus<NativeBoolType> mask = IO.open(maskImportDirectory, new ArrayImgFactory<>(new NativeBoolType()), config);
+
+        Img<FloatType> output = tiffImage.factory().create(tiffImage.dimensionsAsLongArray());
+        RandomAccess<FloatType> outputracc = output.randomAccess();
+        RandomAccess<FloatType> tiffracc = tiffImage.randomAccess();
+        Cursor<NativeBoolType> maskCursor = mask.localizingCursor();
+        long[] pos = new long[3];
+        while (maskCursor.hasNext()) {
+            maskCursor.fwd();
+            maskCursor.localize(pos);
+            outputracc.setPosition(pos);
+            tiffracc.setPosition(pos);
+            if (maskCursor.get().get()) {
+                outputracc.get().set(tiffracc.get());
+            } else {
+                outputracc.get().setZero();
+            }
+        }
+        ij.ui().show(output);
+        ij.ui().show(mask);
 
 
         // read the data
-        final long startTime = System.currentTimeMillis();
+//        final long startTime = System.currentTimeMillis();
 
-        RecursiveExtensionFilteredLister lister = new RecursiveExtensionFilteredLister();
-        lister.setFileLimit(5);
-        lister.setPath(importDirectory);
-        lister.addExtension("cif");
+//        RecursiveExtensionFilteredLister lister = new RecursiveExtensionFilteredLister();
+//        lister.setFileLimit(5);
+//        lister.setPath(importDirectory);
+//        lister.addExtension("cif");
 
 //        ConnectedComponentsValidator<UnsignedShortType> validator = new ConnectedComponentsValidator<>(opService);
 //        Loader<UnsignedShortType> relation = new CIFLoader<>(ij.log(), -1, Arrays.asList(0L, 5L, 8L), lister.getFiles().iterator(), ij.scifio(), validator, new UnsignedShortType());

@@ -2,7 +2,6 @@ package be.maximl.data.loaders.imp;
 
 import be.maximl.data.loaders.MaskedLoader;
 import be.maximl.data.validators.Validator;
-import io.scif.FormatException;
 import io.scif.SCIFIO;
 import net.imglib2.img.Img;
 import net.imglib2.img.ImgFactory;

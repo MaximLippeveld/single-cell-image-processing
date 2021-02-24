@@ -72,10 +72,6 @@ public abstract class MaskedLoader<T extends NativeType<T> & RealType<T>> extend
           Img<NativeBoolType> mask = maskIterator.next();
           image.setMasks(mask);
 
-          boolean valid = validator.validate(image);
-          if (!valid)
-            return null;
-
           if (!maskIterator.hasNext() & maskLister.hasNext()) {
             // close current reader
             maskReader.close();
@@ -84,6 +80,10 @@ public abstract class MaskedLoader<T extends NativeType<T> & RealType<T>> extend
             maskReader = scifio.initializer().initializeReader(new FileLocation(maskLister.next()));
             maskIterator = initializeNewMaskIterator();
           }
+
+          boolean valid = validator.validate(image);
+          if (!valid)
+              return null;
 
           return image;
       } catch (IOException e) {

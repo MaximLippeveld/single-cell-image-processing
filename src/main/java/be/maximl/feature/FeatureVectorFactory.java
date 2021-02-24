@@ -304,23 +304,26 @@ public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
         ImgFactory<T> factory = img.getFactory();
 
         boolean[] compute = new boolean[img.getChannels().size()];
-        Img<T> libImg;
+        Img<T> output;
         if (masked) {
-            IterableInterval<T> slice = Regions.sampleWithRandomAccessible(img.getMaskImg(), img.getImg());
-            libImg = factory.create(slice.dimensionsAsLongArray());
-            Cursor<T> cursor = slice.localizingCursor();
-            RandomAccess<T> rac = libImg.randomAccess();
+            output = factory.create(img.getMaskImg().dimensionsAsLongArray());
+            Cursor<NativeBoolType> cursor = img.getMaskImg().localizingCursor();
+            RandomAccess<T> outputRandomAccess = output.randomAccess();
+            RandomAccess<T> imgRandomAccess = img.getImg().randomAccess();
             while(cursor.hasNext()) {
                 cursor.fwd();
-                T type = cursor.get();
-                if(type.getRealDouble() > 0) {
-                    rac.setPosition(cursor);
-                    rac.get().set(type);
+                outputRandomAccess.setPosition(cursor);
+                imgRandomAccess.setPosition(cursor);
+                if(cursor.get().get()) {
+                    T type = imgRandomAccess.get();
+                    outputRandomAccess.get().set(type);
                     compute[cursor.getIntPosition(2)] = true;
+                } else {
+                    outputRandomAccess.get().setZero();
                 }
             }
         } else {
-            libImg = img.getImg();
+            output = img.getImg();
             Arrays.fill(compute, true);
         }
 
@@ -332,7 +335,7 @@ public class FeatureVectorFactory<T extends NativeType<T> & RealType<T>> {
                 computeOnMask(vec, img, compute[i], i, channel);
             }
 
-            IntervalView<T> iv = opService.transform().hyperSliceView(libImg, 2, i);
+            IntervalView<T> iv = opService.transform().hyperSliceView(output, 2, i);
             compute(vec, iv, compute[i], channel);
         }
         return vec;

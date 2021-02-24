@@ -147,10 +147,6 @@ public abstract class Loader<T extends NativeType<T> & RealType<T>> implements I
 
         try {
             Img<T> planes = iterator.next();
-
-            ImageJ ij = new ImageJ();
-            IntervalView<T> it = ij.op().transform().hyperSliceView(planes, 2, 0);
-
             Image<T> image = createImage(currentReader, currentIndex, planes);
             currentIndex++;
 
